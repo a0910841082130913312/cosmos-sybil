@@ -109,12 +109,9 @@ def pubkey_to_address(pubkey, chain):
 # Converts a public/private keypair and a chain prefix to a bech32 encoded address
 def keypair_to_address(pubkey, privkey, chain):
   bech32_address = pubkey_to_address(pubkey, chain)
-  account_number, sequence = get_account_number_and_sequence(chain, bech32_address)
   return {
     'chain': chain,
     'address': bech32_address,
-    'account_number': account_number,
-    'sequence': sequence,
     'pubkey': pubkey,
     'privkey': privkey
     }
@@ -157,6 +154,12 @@ def get_account_number_and_sequence(chain, address):
   api_call = f'{chain_info(chain)["api"]}/cosmos/auth/v1beta1/accounts/{address}'
   data = query_api(api_call)
   return (int(data['account']['account_number']), int(data['account']['sequence']))
+
+# Given an address object, adds account number and sequence infp
+def add_account_number_and_sequence(address):
+  account_number, sequence = get_account_number_and_sequence(address['chain'], address['address'])
+  address['account_number'] = account_number
+  address['sequence'] = sequence
 
 # Returns the native token balance on a given chain for a given address
 def get_wallet_balance(chain, address):
@@ -270,7 +273,11 @@ def get_specific_address(account, chain):
   return address
 
 # Initializes and returns a dictionary representing an empty transaction
-def initialize_transaction(address, chain):
+def initialize_transaction(address):
+  try:
+    add_account_number_and_sequence(address)
+  except:
+    raise RuntimeError('likely trying to send transaction from uninitialized account with 0 tokens for gas')
   return {
     'address': address,
     'gas': 0,
@@ -539,7 +546,7 @@ def multisend_one_many():
   if not proceed:
     print(f'! Exiting: User rejected transaction.')
     return
-  tx = initialize_transaction(address_from, chain)
+  tx = initialize_transaction(address_from)
   for account_to in accounts_to:
     address_to = get_specific_address(account_to, chain)
     tx_add_transfer(tx, address_to['address'], amount)
@@ -586,7 +593,7 @@ def multisend_many_one():
       print(f'Skipping: Transfer would leave wallet below minimum balance.')
     else:
       print(f'Sending {transfer_amount} {symbol} from wallet {account_from["id"]} to account {account_to["id"]}')
-      tx = initialize_transaction(address_from, chain)
+      tx = initialize_transaction(address_from)
       tx_add_transfer(tx, address_to['address'], transfer_amount)
       send_transaction(tx)
 
@@ -626,7 +633,7 @@ def check_delegations():
       else:
         for validator, reward in rewards['validators']:
           print(f'Claiming {reward / (10 ** chain_info(chain)["decimals"])} {symbol} in rewards from validator {validator}...')
-          tx = initialize_transaction(address, chain)
+          tx = initialize_transaction(address)
           tx_claim_rewards(tx, validator)
           send_transaction(tx)
         delegations = get_all_delegated(chain, address['address'])
@@ -639,7 +646,7 @@ def check_delegations():
             best_validator = delegation['delegation']['validator_address']
         amount_stake = round(wallet + rewards['total_rewards'] - fee - min_balance)
         print(f'Staking {amount_stake} {symbol} with {best_validator}...')
-        tx = initialize_transaction(address, chain)
+        tx = initialize_transaction(address)
         tx_add_delegation(tx, best_validator, amount_stake)
         send_transaction(tx)
 
