@@ -1,0 +1,16 @@
+syntax = "proto3";
+package cosmos.distribution.v1beta1;
+
+import "gogo.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/distribution/types";
+
+// MsgWithdrawDelegatorReward represents delegation withdrawal to a delegator
+// from a single validator.
+message MsgWithdrawDelegatorReward {
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  string delegator_address = 1 [(gogoproto.moretags) = "yaml:\"delegator_address\""];
+  string validator_address = 2 [(gogoproto.moretags) = "yaml:\"validator_address\""];
+}

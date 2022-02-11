@@ -1,0 +1,62 @@
+[
+  {
+    "chain": "Cosmos",
+    "chainId": "cosmoshub-4",
+    "prefix": "cosmos",
+    "derivationCoinType": 118,
+    "token": "uatom",
+    "symbol": "ATOM",
+    "decimals": 6,
+    "feeClaim": 3500,
+    "feeStake": 6250,
+    "feeTransfer": 2000,
+    "minBalance": 50000,
+    "stakingApr": 15,
+    "api": "https://cosmoshub-4--lcd--full.datahub.figment.io/apikey/b2f7367865a97058ffba194d11539533"
+  },
+  {
+    "chain": "Osmosis",
+    "chainId": "osmosis-1",
+    "prefix": "osmo",
+    "derivationCoinType": 118,
+    "token": "uosmo",
+    "symbol": "OSMO",
+    "decimals": 6,
+    "feeClaim": 0,
+    "feeStake": 0,
+    "feeTransfer": 0,
+    "minBalance": 0,
+    "stakingApr": 82,
+    "api": "https://osmosis-1--lcd--full.datahub.figment.io/apikey/a1fb0fba7a8f2f219552c9bb8f20978f"
+  },
+  {
+    "chain": "Juno",
+    "chainId": "juno-1",
+    "prefix": "juno",
+    "derivationCoinType": 118,
+    "token": "ujuno",
+    "symbol": "JUNO",
+    "decimals": 6,
+    "feeClaim": 350,
+    "feeStake": 625,
+    "feeTransfer": 200,
+    "minBalance": 5000,
+    "stakingApr": 114,
+    "api": "https://lcd-juno.itastakers.com"
+  },
+  {
+    "chain": "Secret Network",
+    "chainId": "secret-4",
+    "prefix": "secret",
+    "derivationCoinType": 529,
+    "token": "uscrt",
+    "symbol": "SCRT",
+    "decimals": 6,
+    "feeClaim": 350,
+    "feeStake": 10000,
+    "feeTransfer": 5000,
+    "minBalance": 125000,
+    "stakingApr": 25,
+    "api": "https://secret-4--lcd--archive.datahub.figment.io/apikey/5178a051d7ba67065aec8d77ea2ec960"
+  }
+]
