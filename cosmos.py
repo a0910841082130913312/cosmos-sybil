@@ -4,6 +4,7 @@ import json
 import ecdsa
 import base64
 import bech32
+import random
 import hashlib
 import requests
 import hdwallets
@@ -612,6 +613,8 @@ def check_delegations():
     for chain in chains:
       address = get_specific_address(account, chain)
       print(f'> Processing wallet {account["id"]} on {chain} ({address["address"]})')
+
+      # Retrieve all relevant balances, fees, parameters, etc.
       balances = get_all_token_balances(chain, address['address'])
       wallet, delegated, rewards = balances['wallet'], balances['delegated'], balances['rewards']
       symbol = chain_info(chain)['symbol']
@@ -628,6 +631,8 @@ def check_delegations():
       min_balance = chain_info(chain)['minBalance'] / (10 ** chain_info(chain)['decimals'])
       staking_apr = chain_info(chain)['stakingApr']
       print(f'Estimated transaction fee for claiming and restaking: {fee} {symbol}')
+
+      # Determine whether it's desirable to claim and restake
       should_claim, diff = optimal_restaking(wallet, min_balance, delegated, staking_apr, rewards["total_rewards"], fee)
       if not should_claim:
         if diff is not None:
@@ -635,11 +640,14 @@ def check_delegations():
         else:
           print(f'It is NOT optimal to claim and restake (balance would decrease below minimum).')
       else:
+        # Claim all nontrivial delegation rewards
         for validator, reward in rewards['validators']:
           print(f'Claiming {reward / (10 ** chain_info(chain)["decimals"])} {symbol} in rewards from validator {validator}...')
           tx = initialize_transaction(address)
           tx_claim_rewards(tx, validator)
           send_transaction(tx)
+
+        # Attempt to select target validator as validator with largest delegated amount currently
         delegations = get_all_delegated(chain, address['address'])
         best_validator = None
         max_amount = -1
@@ -648,11 +656,24 @@ def check_delegations():
           if delegated_amount > max_amount:
             max_amount = delegated_amount
             best_validator = delegation['delegation']['validator_address']
-        amount_stake = round(wallet + rewards['total_rewards'] - fee - min_balance)
-        print(f'Staking {amount_stake} {symbol} with {best_validator}...')
-        tx = initialize_transaction(address)
-        tx_add_delegation(tx, best_validator, amount_stake)
-        send_transaction(tx)
+            print(f'Selected {best_validator} as delegation target (current delegation amount: {delegated_amount})')
+
+        # If no delegations, select a random validator from preferredValidator{1,2,3} in chains config
+        if best_validator is None:
+          preferred_validators = [chain_info(chain)['preferredValidator' + str(i)] for i in [1, 2, 3]]
+          preferred_validators = [validator for validator in preferred_validators if validator != '']
+          best_validator = random.choice(preferred_validators)
+          print(f'Selected {best_validator} as delegation target (random preferred validator)')
+
+        # Proceed with staking transaction if target validator successfully selected:
+        if best_validator is not None:
+          amount_stake = round(wallet + rewards['total_rewards'] - fee - min_balance)
+          print(f'Staking {amount_stake} {symbol} with {best_validator}...')
+          tx = initialize_transaction(address)
+          tx_add_delegation(tx, best_validator, amount_stake)
+          send_transaction(tx)
+        else:
+          print('Failed to select target validator for delegation!')
 
 # Main interactive menu
 def main_menu():
