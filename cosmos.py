@@ -28,15 +28,8 @@ SYNC_MODE = 'BROADCAST_MODE_BLOCK'
 PRECISION = 3
 MIN_REWARDS_THRESHOLD = 0.1
 
-# Gas costs associated with particular operations
-# Increase if necessary; derived empirically
-GAS_CLAIM = 140000
-GAS_STAKE = 300000
-GAS_TRANSFER = 80000
-
 # Constant parameters related to mnemonic -> wallet derivation
 # Do not change
-DERIVATION = "m/44'/118'/0'/0"
 PBKDF2_ROUNDS = 2048
 
 # AES encryption of a string
@@ -88,12 +81,13 @@ def mnemonic_to_seed(mnemonic):
   stretched = hashlib.pbkdf2_hmac('sha512', mnemonic_bytes, passcode_bytes, PBKDF2_ROUNDS)
   return stretched[:64]
 
-# Converts a mnemonic seed to a private key, given a specific account ID (0, 1, ...)
+# Converts a mnemonic seed to a private key, given a specific account ID (0, 1, ...) and chain identifier
+# The chain identifier is necessary to get the correct coin type in the derivation path
 # Based on https://github.com/hukkin/cosmospy/blob/master/src/cosmospy/_wallet.py
-def mnemonic_to_privkey(mnemonic, id):
+def mnemonic_to_privkey(mnemonic, id, chain):
   binary_seed = mnemonic_to_seed(mnemonic)
   hd_wallet = hdwallets.BIP32.from_seed(binary_seed)
-  derivation_path = f'{DERIVATION}/{id}'
+  derivation_path = f'm/44\'/{chain_info(chain)["derivationCoinType"]}\'/0\'/0/{id}'
   privkey = hd_wallet.get_privkey_from_path(derivation_path)
   return privkey
 
@@ -112,33 +106,32 @@ def pubkey_to_address(pubkey, chain):
   five_bit_r = bech32.convertbits(r, 8, 5)
   return bech32.bech32_encode(prefix, five_bit_r)
 
-# Converts a public key to a list of addresses from a list of chain prefixes
-def pubkey_to_address_list(pubkey, chains):
-  addresses = []
-  for chain in chains:
-    address = pubkey_to_address(pubkey, chain)
-    account_number, sequence = get_account_number_and_sequence(chain, address)
-    addresses.append({'chain': chain, 'address': address, 'account_number': account_number, 'sequence': sequence})
-  return addresses
+# Converts a public/private keypair and a chain prefix to a bech32 encoded address
+def keypair_to_address(pubkey, privkey, chain):
+  bech32_address = pubkey_to_address(pubkey, chain)
+  account_number, sequence = get_account_number_and_sequence(chain, bech32_address)
+  return {
+    'chain': chain,
+    'address': bech32_address,
+    'account_number': account_number,
+    'sequence': sequence,
+    'pubkey': pubkey,
+    'privkey': privkey
+    }
 
 # Returns a list of accounts given a mnemonic, max account number, and list of chain prefixes
 def mnemonic_to_accounts(mnemonic, num_accounts, chains):
   accounts = []
   for id in range(num_accounts):
-    print(f'Retrieving data for account {id}...')
-    privkey = mnemonic_to_privkey(mnemonic, id)
-    pubkey = privkey_to_pubkey(privkey)
-    addresses = pubkey_to_address_list(pubkey, chains)
-    accounts.append({'id': id, 'privkey': privkey, 'pubkey': pubkey, 'addresses': addresses})
+    account = {'id': id, 'addresses': []}
+    for chain in chains:
+      print(f'Retrieving data for account {id} on {chain}...')
+      privkey = mnemonic_to_privkey(mnemonic, id, chain)
+      pubkey = privkey_to_pubkey(privkey)
+      address = keypair_to_address(pubkey, privkey, chain)
+      account['addresses'].append(address)
+    accounts.append(account)
   return accounts
-
-# Several mnemonic derivation test cases
-def test_mnemonic_derivation():
-  mnemonic = 'purity tunnel grid error scout long fruit false embody caught skin gate' # random unused mnemonic
-  addr_cosmos = pubkey_to_address(privkey_to_pubkey(mnemonic_to_privkey(mnemonic, 2)), 'cosmos')
-  assert addr_cosmos == 'cosmos1ddsm40v7vvdnq3vyzugrlyxdpj9th6e797he0j'
-  addr_osmo = pubkey_to_address(privkey_to_pubkey(mnemonic_to_privkey(mnemonic, 0)), 'osmo')
-  assert addr_osmo == 'osmo17hsjcddp8cw77ahwr5r5jqzdmvtuffjl69cnd8'
 
 # Returns list of chains in config file
 @cache
@@ -277,10 +270,8 @@ def get_specific_address(account, chain):
   return address
 
 # Initializes and returns a dictionary representing an empty transaction
-def initialize_transaction(account, chain):
-  address = get_specific_address(account, chain)
+def initialize_transaction(address, chain):
   return {
-    'account': account,
     'address': address,
     'gas': 0,
     'fee': 0,
@@ -295,7 +286,7 @@ def tx_add_transfer(tx, recipient, amount):
   amount = str(int(amount))
 
   # Increment total gas and fee
-  tx['gas'] += GAS_TRANSFER
+  tx['gas'] += chain_info(tx['address']['chain'])['gasTransfer']
   tx['fee'] += chain_info(tx['address']['chain'])['feeTransfer']
 
   # Create and append message object
@@ -318,7 +309,7 @@ def tx_add_delegation(tx, validator, amount):
   amount = str(int(amount))
 
   # Increment total gas and fee
-  tx['gas'] += GAS_STAKE
+  tx['gas'] += chain_info(tx['address']['chain'])['gasStake']
   tx['fee'] += chain_info(tx['address']['chain'])['feeStake']
 
   # Create and append message object
@@ -337,7 +328,7 @@ def tx_add_delegation(tx, validator, amount):
 # Given a transaction generated by initialize_transaction, adds a rewards claiming operation
 def tx_claim_rewards(tx, validator):
   # Increment total gas and fee
-  tx['gas'] += GAS_CLAIM
+  tx['gas'] += chain_info(tx['address']['chain'])['gasClaim']
   tx['fee'] += chain_info(tx['address']['chain'])['feeClaim']
 
   # Create and append message object
@@ -365,7 +356,7 @@ def get_signer_infos(tx):
   signer_infos = Tx.SignerInfo()
   signer_infos.sequence = tx['address']['sequence']
   pubkey = PubKey.PubKey()
-  pubkey.key = tx['account']['pubkey']
+  pubkey.key = tx['address']['pubkey']
   signer_infos.public_key.Pack(pubkey)
   signer_infos.public_key.type_url = '/cosmos.crypto.secp256k1.PubKey'
   signer_infos.mode_info.single.mode = 1
@@ -382,7 +373,7 @@ def get_sign_doc(tx):
 
 # Internal method for protobuf object structure
 def get_signatures(tx):
-  privkey = ecdsa.SigningKey.from_string(tx['account']['privkey'], curve=ecdsa.SECP256k1)
+  privkey = ecdsa.SigningKey.from_string(tx['address']['privkey'], curve=ecdsa.SECP256k1)
   signature_compact = privkey.sign_deterministic(
     get_sign_doc(tx).SerializeToString(),
     hashfunc=hashlib.sha256,
@@ -408,7 +399,7 @@ def send_transaction(tx):
   api_call = f'{chain_info(chain)["api"]}/cosmos/tx/v1beta1/txs'
   r = requests.post(api_call, data=pushable_tx)
   if r.status_code == 200:
-    print('Transaction succeeded.')
+    print(f'Transaction succeeded with status code {r.status_code} ({r.reason}).')
   else:
     print(f'Transaction failed with status code {r.status_code} ({r.reason}).')
 
@@ -548,7 +539,7 @@ def multisend_one_many():
   if not proceed:
     print(f'! Exiting: User rejected transaction.')
     return
-  tx = initialize_transaction(account_from, chain)
+  tx = initialize_transaction(address_from, chain)
   for account_to in accounts_to:
     address_to = get_specific_address(account_to, chain)
     tx_add_transfer(tx, address_to['address'], amount)
@@ -595,7 +586,7 @@ def multisend_many_one():
       print(f'Skipping: Transfer would leave wallet below minimum balance.')
     else:
       print(f'Sending {transfer_amount} {symbol} from wallet {account_from["id"]} to account {account_to["id"]}')
-      tx = initialize_transaction(account_from, chain)
+      tx = initialize_transaction(address_from, chain)
       tx_add_transfer(tx, address_to['address'], transfer_amount)
       send_transaction(tx)
 
@@ -635,7 +626,7 @@ def check_delegations():
       else:
         for validator, reward in rewards['validators']:
           print(f'Claiming {reward / (10 ** chain_info(chain)["decimals"])} {symbol} in rewards from validator {validator}...')
-          tx = initialize_transaction(account, chain)
+          tx = initialize_transaction(address, chain)
           tx_claim_rewards(tx, validator)
           send_transaction(tx)
         delegations = get_all_delegated(chain, address['address'])
@@ -648,7 +639,7 @@ def check_delegations():
             best_validator = delegation['delegation']['validator_address']
         amount_stake = round(wallet + rewards['total_rewards'] - fee - min_balance)
         print(f'Staking {amount_stake} {symbol} with {best_validator}...')
-        tx = initialize_transaction(account, chain)
+        tx = initialize_transaction(address, chain)
         tx_add_delegation(tx, best_validator, amount_stake)
         send_transaction(tx)
 
