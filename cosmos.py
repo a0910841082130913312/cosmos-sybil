@@ -605,6 +605,8 @@ def check_delegations():
   chains = select_items(chains)
   print(f'> Selected chains: {", ".join(chains)}')
   print('> Loading accounts...')
+  print('> Preserve wallet balances in first account?')
+  skip_first = confirm()
   accounts = get_accounts(chains)
   for account in accounts:
     for chain in chains:
@@ -614,6 +616,8 @@ def check_delegations():
       wallet, delegated, rewards = balances['wallet'], balances['delegated'], balances['rewards']
       symbol = chain_info(chain)['symbol']
       print(f'Wallet: {wallet} {symbol}')
+      if account['id'] == 0 and skip_first:
+        wallet = 0
       print(f'Delegated balance: {delegated} {symbol}')
       print(f'Total pending rewards: {rewards["total_rewards"]} {symbol}')
       print(f'Number of validators delegated to: {len(rewards["validators"])}')
