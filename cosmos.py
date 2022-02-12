@@ -378,7 +378,7 @@ def tx_claim_rewards(tx, validator):
   tx['tx_body'].messages.append(pack_msg(msg, '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward'))
 
 # Given a proposal ID, vote randomly on the proposal
-def tx_add_vote(tx, proposal_id):
+def tx_add_vote(tx, proposal_id, vote=None):
   # Increment total gas and fee
   tx['gas'] += chain_info(tx['address']['chain'])['gasVote']
   tx['fee'] += chain_info(tx['address']['chain'])['feeVote']
@@ -387,12 +387,16 @@ def tx_add_vote(tx, proposal_id):
   msg = MsgVote.MsgVote()
   msg.proposal_id = int(proposal_id)
   msg.voter = tx['address']['address']
-  if random.random() < PROB_VOTE_YES:
-    msg.option = 1
-    print(f'Voting "Yes" on proposal {proposal_id}.')
+  if vote is None:
+    if random.random() < PROB_VOTE_YES:
+      msg.option = 1
+      print(f'Randomly voting "Yes" on proposal {proposal_id}.')
+    else:
+      msg.option = 3
+      print(f'Randomly voting "No" on proposal {proposal_id}.')
   else:
-    msg.option = 3
-    print(f'Voting "No" on proposal {proposal_id}.')
+    msg.option = vote
+    print(f'Manually selected vote option {vote} for proposal {proposal_id}.')
   tx['tx_body'].messages.append(pack_msg(msg, '/cosmos.gov.v1beta1.MsgVote'))
 
 # Internal method for protobuf object structure
@@ -442,7 +446,6 @@ def generate_pushable_tx(tx):
   tx['tx_raw'].auth_info_bytes = get_auth_info(tx).SerializeToString()
   tx['tx_raw'].signatures.append(get_signatures(tx))
   tx_raw = base64.b64encode(bytes(tx['tx_raw'].SerializeToString())).decode('utf-8')
-  #return json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': SYNC_MODE, 'params': {'tx': tx_raw}})
   return json.dumps({'tx_bytes': tx_raw, 'mode': SYNC_MODE})
 
 # Sends a complete transaction to the corresponding chain
@@ -528,15 +531,31 @@ def confirm():
     return True
   return False
 
-# Shows native token balances on chains of interest
-def show_balances():
-  chains = chain_list()
+# Selects a single chain from a list
+def select_single_chain(chains):
+  print('> Select a chain')
+  chain = select_chain(chains)
+  print(f'> Chain selected: {chain}')
+  return chain
+
+# Selects one or multiple chains from a list
+def select_multiple_chains(chains):
   print('> Select one or more chains')
   print_item_menu(chains)
   chains = select_items(chains)
   print(f'> Selected chains: {", ".join(chains)}')
+  return chains
+
+# Load accounts corresponding to a list of chains
+def load_accounts(chains):
   print('> Loading accounts...')
-  accounts = get_accounts(chains)
+  return get_accounts(chains)
+
+# Shows native token balances on chains of interest
+def show_balances():
+  chains = chain_list()
+  chains = select_multiple_chains(chains)
+  accounts = load_accounts(chains)
   chain_balances = {chain: {'wallet': 0, 'delegated': 0, 'rewards': 0} for chain in chains}
   for account in accounts:
     print(f'Fetching token balances for account {account["id"]}...')
@@ -559,11 +578,8 @@ def show_balances():
 # Interactive prompts for one -> many native token transfers
 def multisend_one_many():
   chains = chain_list()
-  print('> Select a chain for the transfer')
-  chain = select_chain(chains)
-  print(f'> Chain selected: {chain}')
-  print('> Loading accounts...')
-  accounts = get_accounts([chain])
+  chain = select_single_chain(chains)
+  accounts = load_accounts([chain])
   print('> Select a source account for the transfer')
   account_from = select_item(accounts)
   address_from = get_specific_address(account_from, chain)
@@ -584,15 +600,15 @@ def multisend_one_many():
   print(f'> Estimated transaction fee: {fee} {symbol}')
   print(f'> Remaining in wallet after transfer: {wallet_balance - total_amount - fee} {symbol}')
   if wallet_balance < total_amount:
-    print(f'! Exiting: Insufficient tokens in wallet.')
+    print(f'Exiting: Insufficient tokens in wallet.')
     return
   if wallet_balance - total_amount - fee < min_balance:
-    print(f'! Exiting: Transfer would leave wallet below minimum balance.')
+    print(f'Exiting: Transfer would leave wallet below minimum balance.')
     return
   print('> Confirm transaction details and proceed')
   proceed = confirm()
   if not proceed:
-    print(f'! Exiting: User rejected transaction.')
+    print(f'Exiting: User rejected transaction.')
     return
   tx = initialize_transaction(address_from)
   for account_to in accounts_to:
@@ -603,11 +619,8 @@ def multisend_one_many():
 # Interactive prompts for many -> one native token transfers
 def multisend_many_one():
   chains = chain_list()
-  print('> Select a chain for the transfer')
-  chain = select_chain(chains)
-  print(f'> Chain selected: {chain}')
-  print('> Loading accounts...')
-  accounts = get_accounts([chain])
+  chain = select_single_chain(chains)
+  accounts = load_accounts([chain])
   print('> Select one or multiple source accounts')
   accounts_from = select_items(accounts)
   print(f'> Selected {len(accounts_from)} source accounts ({", ".join([str(account["id"]) for account in accounts_from])}).')
@@ -648,14 +661,10 @@ def multisend_many_one():
 # Check all accounts on all chains and determine if tokens need claiming and restaking
 def check_delegations():
   chains = chain_list()
-  print('> Select one or more chains')
-  print_item_menu(chains)
-  chains = select_items(chains)
-  print(f'> Selected chains: {", ".join(chains)}')
-  print('> Loading accounts...')
+  chains = select_multiple_chains(chains)
+  accounts = load_accounts(chains)
   print('> Preserve wallet balances in first account?')
   skip_first = confirm()
-  accounts = get_accounts(chains)
   for account in accounts:
     for chain in chains:
       address = get_specific_address(account, chain)
@@ -724,7 +733,56 @@ def check_delegations():
 
 # Vote on all eligible governance proposals for all given accounts
 def cast_governance_votes():
-  print('> Not yet implemented.')
+  chains = chain_list()
+  chains = select_multiple_chains(chains)
+  accounts = load_accounts(chains)
+
+  # Get a list of active proposal IDs for each chain
+  print('> Scanning chains for active proposals')
+  proposals = {}
+  for chain in chains:
+    proposals[chain] = get_active_proposals(chain)
+    num_proposals = len(proposals[chain])
+    text = f'{num_proposals} active proposals identified for {chain}'
+    if num_proposals > 0:
+      text += f' (IDs {", ".join(proposals[chain])})'
+    print(text)
+
+  # Limit to those chains with 1 or more active proposals
+  chains = [chain for chain in chains if len(proposals[chain]) > 0]
+
+  # Iterate over accounts and chains to perform relevant voting
+  for account in accounts:
+    for chain in chains:
+      address = get_specific_address(account, chain)
+      print(f'> Processing wallet {account["id"]} on {chain} ({address["address"]})')
+
+      # Check that account has been initialized on chain
+      try:
+        add_account_number_and_sequence(address)
+      except:
+        print('Account is empty and has not been initialized.')
+        continue
+
+      # Check wallet and delegation balances to ensure voting is possible
+      wallet = get_wallet_balance(chain, address['address'])
+      delegated = get_total_delegated(chain, address['address'])
+      fee = chain_info(chain)['gasVote']
+      if wallet == 0 and fee != 0:
+        print('Insufficient wallet balance to send governance vote.')
+        continue
+      elif delegated == 0:
+        print('No tokens have been delegated to a validator.')
+        continue
+
+      # Iterate over proposals and vote on unvoted proposals
+      for proposal_id in proposals[chain]:
+        if has_voted(chain, proposal_id, address['address']):
+          print(f'Vote already registered for proposal {proposal_id}.')
+        else:
+          tx = initialize_transaction(address)
+          tx_add_vote(tx, proposal_id)
+          send_transaction(tx)
 
 # Main interactive menu
 def main_menu():
@@ -732,10 +790,11 @@ def main_menu():
   if os.path.exists(MNEMONIC):
     options.append('Decrypt mnemonic')
     options.append('Show balances')
-    options.append('Check delegations')
     options.append('Multisend (one -> many)')
     options.append('Multisend (many -> one)')
+    options.append('Check delegations')
     options.append('Cast governance votes')
+    options.append('Check delegations and cast governance votes')
     options.append('Exit')
   print('> Choose an option')
   print_item_menu(options)
@@ -746,13 +805,16 @@ def main_menu():
     decrypt_mnemonic()
   elif opt == 'Show balances':
     show_balances()
-  elif opt == 'Check delegations':
-    check_delegations()
   elif opt == 'Multisend (one -> many)':
     multisend_one_many()
   elif opt == 'Multisend (many -> one)':
     multisend_many_one()
+  elif opt == 'Check delegations':
+    check_delegations()
   elif opt == 'Cast governance votes':
+    cast_governance_votes()
+  elif opt == 'Check delegations and cast governance votes':
+    check_delegations()
     cast_governance_votes()
   elif opt == 'Exit':
     sys.exit(0)
