@@ -128,7 +128,7 @@ def mnemonic_to_accounts(mnemonic, num_accounts, chains):
   for id in range(num_accounts):
     account = {'id': id, 'addresses': []}
     for chain in chains:
-      print(f'Retrieving data for account {id} on {chain}...')
+      #print(f'Retrieving data for account {id} on {chain}...')
       privkey = mnemonic_to_privkey(mnemonic, id, chain)
       pubkey = privkey_to_pubkey(privkey)
       address = keypair_to_address(pubkey, privkey, chain)
@@ -680,6 +680,10 @@ def check_delegations():
         else:
           print('Failed to select target validator for delegation!')
 
+# Vote on all eligible governance proposals for all given accounts
+def cast_governance_votes():
+  print('> Not yet implemented.')
+
 # Main interactive menu
 def main_menu():
   options = ['Encrypt mnemonic']
@@ -689,6 +693,7 @@ def main_menu():
     options.append('Check delegations')
     options.append('Multisend (one -> many)')
     options.append('Multisend (many -> one)')
+    options.append('Cast governance votes')
     options.append('Exit')
   print('> Choose an option')
   print_item_menu(options)
@@ -705,6 +710,8 @@ def main_menu():
     multisend_one_many()
   elif opt == 'Multisend (many -> one)':
     multisend_many_one()
+  elif opt == 'Cast governance votes':
+    cast_governance_votes()
   elif opt == 'Exit':
     sys.exit(0)
 
