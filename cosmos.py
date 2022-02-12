@@ -33,6 +33,7 @@ CHAIN_LIST = 'chains.json'
 SYNC_MODE = 'BROADCAST_MODE_BLOCK'
 PRECISION = 3
 MIN_REWARDS_THRESHOLD = 0.1
+PROB_VOTE_YES = 0.8
 
 # Constant parameter related to mnemonic -> wallet derivation
 # Do not change
@@ -376,6 +377,27 @@ def tx_claim_rewards(tx, validator):
   msg_any = Any.Any()
   msg_any.Pack(msg)
   msg_any.type_url = '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward'
+  tx['tx_body'].messages.append(msg_any)
+
+# Given a proposal ID, vote randomly on the proposal
+def tx_add_vote(tx, proposal_id):
+  # Increment total gas and fee
+  tx['gas'] += chain_info(tx['address']['chain'])['gasVote']
+  tx['fee'] += chain_info(tx['address']['chain'])['feeVote']
+
+  # Create and append message object
+  msg = MsgVote.MsgVote()
+  msg.proposal_id = int(proposal_id)
+  msg.voter = tx['address']['address']
+  if random.random() < PROB_VOTE_YES:
+    msg.option = 1
+    print(f'Voting "Yes" on proposal {proposal_id}.')
+  else:
+    msg.option = 3
+    print(f'Voting "No" on proposal {proposal_id}.')
+  msg_any = Any.Any()
+  msg_any.Pack(msg)
+  msg_any.type_url = '/cosmos.gov.v1beta1.MsgVote'
   tx['tx_body'].messages.append(msg_any)
 
 # Internal method for protobuf object structure
