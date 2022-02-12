@@ -1,0 +1,1 @@
+Python dependencies: `bech32`, `hdwallets`, `pycrypto`

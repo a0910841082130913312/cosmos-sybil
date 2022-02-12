@@ -3,15 +3,19 @@ import sys
 import json
 import ecdsa
 import base64
-import bech32
 import random
 import hashlib
 import requests
+from functools import cache
+
+# Crypto specific library imports
+import bech32
 import hdwallets
+
+# Imports from pycrypto
 from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
-from functools import cache
 
 # Interfaces compiled with protoc from protobuf specifications
 import interfaces.any_pb2 as Any
@@ -29,7 +33,7 @@ SYNC_MODE = 'BROADCAST_MODE_BLOCK'
 PRECISION = 3
 MIN_REWARDS_THRESHOLD = 0.1
 
-# Constant parameters related to mnemonic -> wallet derivation
+# Constant parameter related to mnemonic -> wallet derivation
 # Do not change
 PBKDF2_ROUNDS = 2048
 
