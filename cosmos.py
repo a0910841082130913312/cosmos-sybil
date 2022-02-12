@@ -208,6 +208,31 @@ def get_delegation_rewards(chain, address):
   total_rewards = total_rewards / (10 ** chain_info(chain)['decimals'])
   return {'validators': validators, 'total_rewards': total_rewards}
 
+# Returns a list of all governance proposal IDs for a given chain
+# Only includes proposals currently in their active voting period
+def get_active_proposals(chain):
+  proposals = []
+  stop = False
+  pagination_key = None
+  while not stop:
+    api_call = f'{chain_info(chain)["api"]}/cosmos/gov/v1beta1/proposals'
+    if pagination_key is not None:
+      api_call += '?pagination.key=' + pagination_key
+    data = query_api(api_call)
+    proposals.extend(data['proposals'])
+    pagination_key = data['pagination']['next_key']
+    if pagination_key is None:
+      stop = True
+  proposals = [proposal for proposal in proposals if proposal['status'] == 'PROPOSAL_STATUS_VOTING_PERIOD']
+  proposal_ids = [proposal['proposal_id'] for proposal in proposals]
+  return proposal_ids
+
+# Returns whether or not an address has voted on a governance proposal
+def has_voted(chain, proposal_id, address):
+  api_call = f'{chain_info(chain)["api"]}/cosmos/gov/v1beta1/proposals/{proposal_id}/votes/{address}'
+  data = query_api(api_call)
+  return 'vote' in data
+
 # Returns a dict giving all native token balances for a given chain and address:
 #   wallet => decimal-adjusted wallet balance
 #   delegated => decimal-adjusted delegated token balance
