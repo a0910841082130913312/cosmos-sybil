@@ -767,7 +767,7 @@ def cast_governance_votes():
       # Check wallet and delegation balances to ensure voting is possible
       wallet = get_wallet_balance(chain, address['address'])
       delegated = get_total_delegated(chain, address['address'])
-      fee = chain_info(chain)['gasVote']
+      fee = chain_info(chain)['feeVote']
       if wallet == 0 and fee != 0:
         print('Insufficient wallet balance to send governance vote.')
         continue
