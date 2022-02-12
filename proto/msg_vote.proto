@@ -1,0 +1,19 @@
+syntax = "proto3";
+package cosmos.gov.v1beta1;
+
+import "vote_option.proto";
+import "gogo.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1";
+
+// MsgVote defines a message to cast a vote.
+message MsgVote {
+  option (gogoproto.equal)            = false;
+  option (gogoproto.goproto_stringer) = false;
+  option (gogoproto.stringer)         = false;
+  option (gogoproto.goproto_getters)  = false;
+
+  uint64     proposal_id = 1;
+  string     voter       = 2 [(gogoproto.moretags) = "yaml:\"voter\""];
+  VoteOption option      = 3;
+}

@@ -23,6 +23,7 @@ import interfaces.coin_pb2 as Coin
 import interfaces.msg_send_pb2 as MsgSend
 import interfaces.msg_delegate_pb2 as MsgDelegate
 import interfaces.msg_withdraw_delegator_reward_pb2 as MsgWithdrawDelegatorReward
+import interfaces.msg_vote_pb2 as MsgVote
 import interfaces.pubkey_pb2 as PubKey
 import interfaces.tx_pb2 as Tx
 
