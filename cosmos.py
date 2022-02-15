@@ -532,14 +532,16 @@ def confirm():
   return False
 
 # Selects a single chain from a list
-def select_single_chain(chains):
+def select_single_chain():
+  chains = chain_list()
   print('> Select a chain')
   chain = select_chain(chains)
   print(f'> Chain selected: {chain}')
   return chain
 
 # Selects one or multiple chains from a list
-def select_multiple_chains(chains):
+def select_multiple_chains():
+  chains = chain_list()
   print('> Select one or more chains')
   print_item_menu(chains)
   chains = select_items(chains)
@@ -548,13 +550,14 @@ def select_multiple_chains(chains):
 
 # Load accounts corresponding to a list of chains
 def load_accounts(chains):
+  if not isinstance(chains, list):
+    chains = [chains]
   print('> Loading accounts...')
   return get_accounts(chains)
 
 # Prints out list of addresses
 def show_addresses():
-  chains = chain_list()
-  chains = select_multiple_chains(chains)
+  chains = select_multiple_chains()
   accounts = load_accounts(chains)
   for account in accounts:
     for address in account['addresses']:
@@ -562,8 +565,7 @@ def show_addresses():
 
 # Shows native token balances on chains of interest
 def show_balances():
-  chains = chain_list()
-  chains = select_multiple_chains(chains)
+  chains = select_multiple_chains()
   accounts = load_accounts(chains)
   chain_balances = {chain: {'wallet': 0, 'delegated': 0, 'rewards': 0} for chain in chains}
   for account in accounts:
@@ -586,9 +588,8 @@ def show_balances():
 
 # Interactive prompts for one -> many native token transfers
 def multisend_one_many():
-  chains = chain_list()
-  chain = select_single_chain(chains)
-  accounts = load_accounts([chain])
+  chain = select_single_chain()
+  accounts = load_accounts(chain)
   print('> Select a source account for the transfer')
   account_from = select_item(accounts)
   address_from = get_specific_address(account_from, chain)
@@ -627,9 +628,8 @@ def multisend_one_many():
 
 # Interactive prompts for many -> one native token transfers
 def multisend_many_one():
-  chains = chain_list()
-  chain = select_single_chain(chains)
-  accounts = load_accounts([chain])
+  chain = select_single_chain()
+  accounts = load_accounts(chain)
   print('> Select one or multiple source accounts')
   accounts_from = select_items(accounts)
   print(f'> Selected {len(accounts_from)} source accounts ({", ".join([str(account["id"]) for account in accounts_from])}).')
@@ -669,8 +669,7 @@ def multisend_many_one():
 
 # Check all accounts on all chains and determine if tokens need claiming and restaking
 def check_delegations():
-  chains = chain_list()
-  chains = select_multiple_chains(chains)
+  chains = select_multiple_chains()
   accounts = load_accounts(chains)
   print('> Preserve wallet balances in first account?')
   skip_first = confirm()
@@ -742,8 +741,7 @@ def check_delegations():
 
 # Vote on all eligible governance proposals for all given accounts
 def cast_governance_votes():
-  chains = chain_list()
-  chains = select_multiple_chains(chains)
+  chains = select_multiple_chains()
   accounts = load_accounts(chains)
 
   # Get a list of active proposal IDs for each chain
