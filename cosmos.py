@@ -551,6 +551,15 @@ def load_accounts(chains):
   print('> Loading accounts...')
   return get_accounts(chains)
 
+# Prints out list of addresses
+def show_addresses():
+  chains = chain_list()
+  chains = select_multiple_chains(chains)
+  accounts = load_accounts(chains)
+  for account in accounts:
+    for address in account['addresses']:
+      print(f'{account["id"]} {address["chain"]} {address["address"]}')
+
 # Shows native token balances on chains of interest
 def show_balances():
   chains = chain_list()
@@ -789,6 +798,7 @@ def main_menu():
   options = ['Encrypt mnemonic']
   if os.path.exists(MNEMONIC):
     options.append('Decrypt mnemonic')
+    options.append('Show addresses')
     options.append('Show balances')
     options.append('Multisend (one -> many)')
     options.append('Multisend (many -> one)')
@@ -803,6 +813,8 @@ def main_menu():
     encrypt_mnemonic()
   elif opt == 'Decrypt mnemonic':
     decrypt_mnemonic()
+  elif opt == 'Show addresses':
+    show_addresses()
   elif opt == 'Show balances':
     show_balances()
   elif opt == 'Multisend (one -> many)':
