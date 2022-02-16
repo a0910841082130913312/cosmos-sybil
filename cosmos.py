@@ -75,9 +75,10 @@ def encrypt_mnemonic():
   open(MNEMONIC, 'w').write(encrypt(key, mnemonic))
 
 # Decrypts the saved mnemonic phrase given user-specified password
-def decrypt_mnemonic():
+def decrypt_mnemonic(key=None):
   assert os.path.exists(MNEMONIC), 'encrypted mnemonic file does not exist'
-  key = input('Password: ').strip()
+  if key is None:
+    key = input('Password: ').strip()
   return decrypt(key, open(MNEMONIC).read().strip())
 
 # Converts a mnemonic seed (without passphrase) to corresponding binary seed
@@ -88,15 +89,19 @@ def mnemonic_to_seed(mnemonic):
   stretched = hashlib.pbkdf2_hmac('sha512', mnemonic_bytes, passcode_bytes, PBKDF2_ROUNDS)
   return stretched[:64]
 
-# Converts a mnemonic seed to a private key, given a specific account ID (0, 1, ...) and chain identifier
-# The chain identifier is necessary to get the correct coin type in the derivation path
+# Converts a mnemonic seed to a private key, given a specific derivation path
 # Based on https://github.com/hukkin/cosmospy/blob/master/src/cosmospy/_wallet.py
-def mnemonic_to_privkey(mnemonic, id, chain):
+def mnemonic_to_privkey_from_derivation(mnemonic, derivation_path):
   binary_seed = mnemonic_to_seed(mnemonic)
   hd_wallet = hdwallets.BIP32.from_seed(binary_seed)
-  derivation_path = f'm/44\'/{chain_info(chain)["derivationCoinType"]}\'/0\'/0/{id}'
   privkey = hd_wallet.get_privkey_from_path(derivation_path)
   return privkey
+
+# Converts a mnemonic seed to a private key, given a specific account ID (0, 1, ...) and chain identifier
+# The chain identifier is necessary to get the correct coin type in the derivation path
+def mnemonic_to_privkey(mnemonic, id, chain):
+  derivation_path = f'm/44\'/{chain_info(chain)["derivationCoinType"]}\'/0\'/0/{id}'
+  return mnemonic_to_privkey_from_derivation(mnemonic, derivation_path)
 
 # Converts a private key to a public key
 # Based on https://github.com/hukkin/cosmospy/blob/master/src/cosmospy/_wallet.py
@@ -106,8 +111,11 @@ def privkey_to_pubkey(privkey: bytes) -> bytes:
   return pubkey_obj.to_string('compressed')
 
 # Converts a public key to a bech32 address given a chain
-def pubkey_to_address(pubkey, chain):
-  prefix = chain_info(chain)['prefix']
+# Can also manually specify a prefix
+def pubkey_to_address(pubkey, chain=None, prefix=None):
+  if chain is not None:
+    prefix = chain_info(chain)['prefix']
+  assert prefix is not None, 'failed to specify bech32 prefix'
   s = hashlib.new('sha256', pubkey).digest()
   r = hashlib.new('ripemd160', s).digest()
   five_bit_r = bech32.convertbits(r, 8, 5)
@@ -115,7 +123,7 @@ def pubkey_to_address(pubkey, chain):
 
 # Converts a public/private keypair and a chain prefix to a bech32 encoded address
 def keypair_to_address(pubkey, privkey, chain):
-  bech32_address = pubkey_to_address(pubkey, chain)
+  bech32_address = pubkey_to_address(pubkey, chain=chain)
   return {
     'chain': chain,
     'address': bech32_address,
