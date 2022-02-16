@@ -12,7 +12,8 @@ GAS_ESTIMATE = 1200000
 MAX_FEE = 6
 MAX_FEE_PRIORITY = 2
 DELAY_AFTER_TX = 15
-DELAY_AFTER_VALUEERROR = 10
+DELAY_AFTER_EXCEPTION = 10
+MAX_TX_RETRY = 4
 
 CONTRACT_DAI = Web3.toChecksumAddress('0xd787ec2b6c962f611300175603741db8438674a0')
 CONTRACT_USDC = Web3.toChecksumAddress('0x0aa78575e17ac357294bb7b5a9ea512ba07669e2')
@@ -35,43 +36,45 @@ def get_contract(address, proxy=None, abi=None):
   return w3.eth.contract(address=address, abi=es.get_contract_abi(address if proxy is None else str(proxy)) if abi is None else abi)
 
 def estimate_gas(contract, function, args):
-  #return getattr(contract.functions, function)(*args).estimateGas({'from': account.address})
-  return GAS_ESTIMATE
+  return getattr(contract.functions, function)(*args).estimateGas({'from': account.address})
 
 def get_nonce(account):
   return w3.eth.getTransactionCount(account.address)
 
 def get_account_info(id):
-  privkey = mnemonic_to_privkey_from_derivation(decrypt_mnemonic(key=key), f"m/44'/60'/0'/0/{id}")
-  account = w3.eth.account.privateKeyToAccount(privkey)
+  privkey_eth = mnemonic_to_privkey(decrypt_mnemonic(key=key), id, 'Ethereum')
+  account = w3.eth.account.privateKeyToAccount(privkey_eth)
   privkey_cosmos = mnemonic_to_privkey(decrypt_mnemonic(key=key), id, 'Cosmos')
   umee_address = pubkey_to_address(privkey_to_pubkey(privkey_cosmos), prefix='umee')
   return account, privkey, umee_address
 
-def _send_tx(account, privkey, contract, function, args, proxy=None, abi=None):
+def sign_and_send_tx(tx, privkey, repeats=0):
+  try:
+    signed_tx = w3.eth.account.signTransaction(tx, private_key=privkey)
+    tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+    print(f'Sleeping for {DELAY_AFTER_TX} seconds...')
+    time.sleep(DELAY_AFTER_TX)
+    return tx_hash
+  except:
+    if repeats < MAX_TX_RETRY:
+      print(f'Encountered an exception, sleeping for {DELAY_AFTER_EXCEPTION} seconds...')
+      time.sleep(DELAY_AFTER_EXCEPTION)
+      print('Retrying transaction...')
+      return sign_and_send_tx(tx, privkey, repeats=repeats+1)
+    else:
+      raise RuntimeError('exceeded transaction retry maximum')
+
+def send_tx(account, privkey, contract, function, args, proxy=None, abi=None):
   contract = get_contract(contract, proxy=proxy, abi=abi)
   tx = {
     'from': account.address,
-    'gas': estimate_gas(contract, function, args),
+    'gas': GAS_ESTIMATE,
     'nonce': get_nonce(account),
     'maxFeePerGas': w3.toWei(MAX_FEE, 'gwei'),
     'maxPriorityFeePerGas': w3.toWei(MAX_FEE_PRIORITY, 'gwei')
   }
   built_tx = getattr(contract.functions, function)(*args).buildTransaction(tx)
-  signed_tx = w3.eth.account.signTransaction(built_tx, private_key=privkey)
-  tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
-  print(f'Sleeping for {DELAY_AFTER_TX} seconds...')
-  time.sleep(DELAY_AFTER_TX)
-  return tx_hash
-
-def send_tx(*args, **kwargs):
-  try:
-    return _send_tx(*args, **kwargs)
-  except ValueError:
-    print(f'Encountered ValueError, sleeping for {DELAY_AFTER_VALUEERROR} seconds...')
-    time.sleep(DELAY_AFTER_VALUEERROR)
-    print('Retrying transaction...')
-    return send_tx(*args, **kwargs)
+  return sign_and_send_tx(built_tx, privkey)
 
 def send_ether(account, privkey, amount, recipient):
   tx = {
@@ -84,19 +87,17 @@ def send_ether(account, privkey, amount, recipient):
     'maxPriorityFeePerGas': w3.toWei(MAX_FEE_PRIORITY, 'gwei'),
     'chainId': w3.eth.chain_id
   }
-  signed_tx = w3.eth.account.signTransaction(tx, private_key=privkey)
-  tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
-  print(f'Sleeping for {DELAY_AFTER_TX} seconds...')
-  time.sleep(DELAY_AFTER_TX)
-  return tx_hash
+  return sign_and_send_tx(built_tx, privkey)
 
 w3 = Web3(Web3.HTTPProvider(f'https://goerli.infura.io/v3/{INFURA_PROJECT_ID}'))
 w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 es = Etherscan(ETHERSCAN_API_KEY, net='goerli')
 
 key = input('Password: ').strip()
+min_id = int(input('Min ID: '))
+max_id = int(input('Max ID: '))
 account0, privkey0, _ = get_account_info(0)
-for id in range(8, 500):
+for id in range(min_id, max_id + 1):
   print(f'Beginning transactions for account ID {id}.')
 
   account, privkey, umee_address = get_account_info(id)

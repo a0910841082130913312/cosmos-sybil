@@ -1,5 +1,9 @@
 [
   {
+    "chain": "Ethereum",
+    "derivationCoinType": 60
+  },
+  {
     "chain": "Cosmos",
     "chainId": "cosmoshub-4",
     "prefix": "cosmos",
