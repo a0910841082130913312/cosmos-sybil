@@ -39,19 +39,22 @@ def estimate_gas(contract, function, args):
   return getattr(contract.functions, function)(*args).estimateGas({'from': account.address})
 
 def get_nonce(account):
-  return w3.eth.getTransactionCount(account.address)
+  if not hasattr(account, 'nonce'):
+    account.nonce = w3.eth.getTransactionCount(account.address)
+  return account.nonce
 
 def get_account_info(id):
   privkey_eth = mnemonic_to_privkey(decrypt_mnemonic(key=key), id, 'Ethereum')
   account = w3.eth.account.privateKeyToAccount(privkey_eth)
   privkey_cosmos = mnemonic_to_privkey(decrypt_mnemonic(key=key), id, 'Cosmos')
   umee_address = pubkey_to_address(privkey_to_pubkey(privkey_cosmos), prefix='umee')
-  return account, privkey, umee_address
+  return account, privkey_eth, umee_address
 
-def sign_and_send_tx(tx, privkey, repeats=0):
+def sign_and_send_tx(account, tx, privkey, repeats=0):
   try:
     signed_tx = w3.eth.account.signTransaction(tx, private_key=privkey)
     tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+    account.nonce += 1
     print(f'Sleeping for {DELAY_AFTER_TX} seconds...')
     time.sleep(DELAY_AFTER_TX)
     return tx_hash
@@ -74,7 +77,7 @@ def send_tx(account, privkey, contract, function, args, proxy=None, abi=None):
     'maxPriorityFeePerGas': w3.toWei(MAX_FEE_PRIORITY, 'gwei')
   }
   built_tx = getattr(contract.functions, function)(*args).buildTransaction(tx)
-  return sign_and_send_tx(built_tx, privkey)
+  return sign_and_send_tx(account, built_tx, privkey)
 
 def send_ether(account, privkey, amount, recipient):
   tx = {
@@ -87,7 +90,7 @@ def send_ether(account, privkey, amount, recipient):
     'maxPriorityFeePerGas': w3.toWei(MAX_FEE_PRIORITY, 'gwei'),
     'chainId': w3.eth.chain_id
   }
-  return sign_and_send_tx(built_tx, privkey)
+  return sign_and_send_tx(account, tx, privkey)
 
 w3 = Web3(Web3.HTTPProvider(f'https://goerli.infura.io/v3/{INFURA_PROJECT_ID}'))
 w3.middleware_onion.inject(geth_poa_middleware, layer=0)
