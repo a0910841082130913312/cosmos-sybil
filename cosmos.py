@@ -22,6 +22,7 @@ import interfaces.any_pb2 as Any
 import interfaces.coin_pb2 as Coin
 import interfaces.msg_send_pb2 as MsgSend
 import interfaces.msg_delegate_pb2 as MsgDelegate
+import interfaces.msg_begin_redelegate_pb2 as MsgBeginRedelegate
 import interfaces.msg_withdraw_delegator_reward_pb2 as MsgWithdrawDelegatorReward
 import interfaces.msg_vote_pb2 as MsgVote
 import interfaces.pubkey_pb2 as PubKey
@@ -191,6 +192,18 @@ def get_all_delegated(chain, address):
   api_call = f'{chain_info(chain)["api"]}/cosmos/staking/v1beta1/delegations/{address}'
   data = query_api(api_call)
   return data['delegation_responses']
+
+# Returns the validator with the greatest amount of delegated tokens, plus the amount of tokens delegated
+def get_max_delegated(chain, address):
+  delegations = get_all_delegated(chain, address)
+  best_validator = None
+  max_amount = -1
+  for delegation in delegations:
+    delegated_amount = int(delegation['balance']['amount'])
+    if delegated_amount > max_amount:
+      max_amount = delegated_amount
+      best_validator = delegation['delegation']['validator_address']
+  return best_validator, max_amount
 
 # Returns the total amount of staked native tokens on a given chain for a given address
 def get_total_delegated(chain, address):
@@ -406,6 +419,23 @@ def tx_add_vote(tx, proposal_id, vote=None):
     msg.option = vote
     print(f'Manually selected vote option {vote} for proposal {proposal_id}.')
   tx['tx_body'].messages.append(pack_msg(msg, '/cosmos.gov.v1beta1.MsgVote'))
+
+# Adds a redelegation operation to a transaction
+def tx_add_redelegation(tx, validator_src, validator_dst, amount):
+  # Increment total gas and fee
+  tx['gas'] += chain_info(tx['address']['chain'])['gasStake'] * 2
+  tx['fee'] += chain_info(tx['address']['chain'])['feeStake'] * 2
+
+  # Create and append message object
+  msg = MsgBeginRedelegate.MsgBeginRedelegate()
+  msg.delegator_address = tx['address']['address']
+  msg.validator_src_address = validator_src
+  msg.validator_dst_address = validator_dst
+  _amount = Coin.Coin()
+  _amount.denom = chain_info(tx['address']['chain'])['token']
+  _amount.amount = str(amount)
+  msg.amount.CopyFrom(_amount)
+  tx['tx_body'].messages.append(pack_msg(msg, '/cosmos.staking.v1beta1.MsgBeginRedelegate'))
 
 # Internal method for protobuf object structure
 def get_auth_info(tx):
@@ -654,7 +684,7 @@ def multisend_many_one():
   print('> Confirm transaction details and proceed')
   proceed = confirm()
   if not proceed:
-    print(f'! Exiting: User rejected transaction.')
+    print(f'Exiting: User rejected transaction.')
     return
   for account_from in accounts_from:
     address_from = get_specific_address(account_from, chain)
@@ -720,15 +750,9 @@ def check_delegations():
           send_transaction(tx)
 
         # Attempt to select target validator as validator with largest delegated amount currently
-        delegations = get_all_delegated(chain, address['address'])
-        best_validator = None
-        max_amount = -1
-        for delegation in delegations:
-          delegated_amount = int(delegation['balance']['amount'])
-          if delegated_amount > max_amount:
-            max_amount = delegated_amount
-            best_validator = delegation['delegation']['validator_address']
-            print(f'Selected {best_validator} as delegation target (current delegation amount: {delegated_amount})')
+        best_validator, max_amount = get_max_delegated(chain, address['address'])
+        if best_validator is not None:
+          print(f'Selected {best_validator} as delegation target (current delegation amount: {max_amount})')
 
         # If no delegations, select a random validator from preferredValidator{1,2,3} in chains config
         if best_validator is None:
@@ -799,6 +823,50 @@ def cast_governance_votes():
           tx_add_vote(tx, proposal_id)
           send_transaction(tx)
 
+# Relegates stake from validator with largest delegation to user-specified validator(s)
+def redelegate_stake():
+  chain = select_single_chain()
+  accounts = load_accounts(chain)
+  print('> Select one or multiple accounts to redelegate')
+  accounts = select_items(accounts)
+
+  # Prompt user to enter one or more target validators
+  print('> Enter the validator IDs to redelegate to (comma-separated)')
+  new_validators = input('Validator IDs: ')
+  new_validators = [validator.strip() for validator in new_validators.strip().split(',')]
+  if len(new_validators) == 0:
+    print('No validators specified')
+    return
+
+  # Iterate over accounts and perform redelegation
+  for account in accounts:
+    address = get_specific_address(account, chain)
+    print(f'> Beginning redelegation for account {account["id"]} on {chain} ({address["address"]})')
+
+    # Check that account is initialized
+    try:
+      add_account_number_and_sequence(address)
+    except:
+      print('Account is empty and has not been initialized.')
+      continue
+
+    # Attempt to identify validator with highest delegated stake
+    validator_src, amount  = get_max_delegated(chain, address['address'])
+    if validator_src is None or amount < 0:
+      print('Unable to identify any existing delegations')
+      continue
+    print(f'Validator with highest delegated stake is currently {validator_src} with {amount} tokens')
+
+    # Randomly select a target validator
+    validator_dst = random.choice(new_validators)
+    print(f'Selected {validator_dst} as redelegation target')
+
+    # Perform redelegation
+    print(f'Performing redelegation...')
+    tx = initialize_transaction(address)
+    tx_add_redelegation(tx, validator_src, validator_dst, amount)
+    send_transaction(tx)
+
 # Main interactive menu
 def main_menu():
   options = ['Encrypt mnemonic']
@@ -811,6 +879,7 @@ def main_menu():
     options.append('Check delegations')
     options.append('Cast governance votes')
     options.append('Check delegations and cast governance votes')
+    options.append('Redelegate stake')
     options.append('Exit')
   print('> Choose an option')
   print_item_menu(options)
@@ -834,6 +903,8 @@ def main_menu():
   elif opt == 'Check delegations and cast governance votes':
     check_delegations()
     cast_governance_votes()
+  elif opt == 'Redelegate stake':
+    redelegate_stake()
   elif opt == 'Exit':
     sys.exit(0)
 
