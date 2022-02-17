@@ -39,33 +39,21 @@ def estimate_gas(contract, function, args):
   return getattr(contract.functions, function)(*args).estimateGas({'from': account.address})
 
 def get_nonce(account):
-  if not hasattr(account, 'nonce'):
-    account.nonce = w3.eth.getTransactionCount(account.address)
-  return account.nonce
+  return w3.eth.getTransactionCount(account.address)
 
 def get_account_info(id):
-  privkey_eth = mnemonic_to_privkey(decrypt_mnemonic(key=key), id, 'Ethereum')
+  privkey_eth = mnemonic_to_privkey_from_derivation(decrypt_mnemonic(key=key), f'm/44\'/60\'/0\'/0/{id}')
   account = w3.eth.account.privateKeyToAccount(privkey_eth)
   privkey_cosmos = mnemonic_to_privkey(decrypt_mnemonic(key=key), id, 'Cosmos')
   umee_address = pubkey_to_address(privkey_to_pubkey(privkey_cosmos), prefix='umee')
   return account, privkey_eth, umee_address
 
-def sign_and_send_tx(account, tx, privkey, repeats=0):
-  try:
-    signed_tx = w3.eth.account.signTransaction(tx, private_key=privkey)
-    tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
-    account.nonce += 1
-    print(f'Sleeping for {DELAY_AFTER_TX} seconds...')
-    time.sleep(DELAY_AFTER_TX)
-    return tx_hash
-  except:
-    if repeats < MAX_TX_RETRY:
-      print(f'Encountered an exception, sleeping for {DELAY_AFTER_EXCEPTION} seconds...')
-      time.sleep(DELAY_AFTER_EXCEPTION)
-      print('Retrying transaction...')
-      return sign_and_send_tx(tx, privkey, repeats=repeats+1)
-    else:
-      raise RuntimeError('exceeded transaction retry maximum')
+def sign_and_send_tx(account, tx, privkey):
+  signed_tx = w3.eth.account.signTransaction(tx, private_key=privkey)
+  tx_hash = w3.eth.sendRawTransaction(signed_tx.rawTransaction)
+  print(f'Sleeping for {DELAY_AFTER_TX} seconds...')
+  time.sleep(DELAY_AFTER_TX)
+  return tx_hash
 
 def send_tx(account, privkey, contract, function, args, proxy=None, abi=None):
   contract = get_contract(contract, proxy=proxy, abi=abi)
@@ -92,6 +80,15 @@ def send_ether(account, privkey, amount, recipient):
   }
   return sign_and_send_tx(account, tx, privkey)
 
+def send_tx_with_retries(func, *args, **kwargs):
+  try:
+    return func(*args, **kwargs)
+  except:
+    print(f'Encountered an exception, sleeping for {DELAY_AFTER_EXCEPTION} seconds...')
+    time.sleep(DELAY_AFTER_EXCEPTION)
+    print('Retrying transaction...')
+    return send_tx_with_retries(func, *args, **kwargs)
+
 w3 = Web3(Web3.HTTPProvider(f'https://goerli.infura.io/v3/{INFURA_PROJECT_ID}'))
 w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 es = Etherscan(ETHERSCAN_API_KEY, net='goerli')
@@ -107,45 +104,45 @@ for id in range(min_id, max_id + 1):
   print(f'Account address: {account.address}')
 
   print(f'Funding with {ETH_FUNDING_AMOUNT} ETH...')
-  send_ether(account0, privkey0, 0.02, account.address)
+  send_tx_with_retries(send_ether, account0, privkey0, 0.02, account.address)
 
   print('Approving DAI...')
-  send_tx(account, privkey, CONTRACT_DAI, 'approve', [CONTRACT_BANK, MAX_VALUE])
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_DAI, 'approve', [CONTRACT_BANK, MAX_VALUE])
 
   print('Approving USDC...')
-  send_tx(account, privkey, CONTRACT_USDC, 'approve', [CONTRACT_BANK, MAX_VALUE])
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_USDC, 'approve', [CONTRACT_BANK, MAX_VALUE])
 
   print('Minting testnet DAI...')
-  send_tx(account, privkey, CONTRACT_DAI, 'mint', [MINT_AMOUNT_DAI])
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_DAI, 'mint', [MINT_AMOUNT_DAI])
 
   print('Minting testnet USDC...')
-  send_tx(account, privkey, CONTRACT_USDC, 'mint', [MINT_AMOUNT_USDC])
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_USDC, 'mint', [MINT_AMOUNT_USDC])
 
   print('Depositing DAI...')
-  send_tx(account, privkey, CONTRACT_BANK, 'deposit', [CONTRACT_DAI, MINT_AMOUNT_DAI, account.address, 0], proxy=CONTRACT_BANK_PROXY)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_BANK, 'deposit', [CONTRACT_DAI, MINT_AMOUNT_DAI, account.address, 0], proxy=CONTRACT_BANK_PROXY)
 
   print('Depositing USDC...')
-  send_tx(account, privkey, CONTRACT_BANK, 'deposit', [CONTRACT_USDC, MINT_AMOUNT_USDC, account.address, 0], proxy=CONTRACT_BANK_PROXY)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_BANK, 'deposit', [CONTRACT_USDC, MINT_AMOUNT_USDC, account.address, 0], proxy=CONTRACT_BANK_PROXY)
 
   print('Approving USDT...')
-  send_tx(account, privkey, CONTRACT_USDT, 'approve', [CONTRACT_BANK, MAX_VALUE])
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_USDT, 'approve', [CONTRACT_BANK, MAX_VALUE])
 
   print('Borrowing USDT...')
-  send_tx(account, privkey, CONTRACT_BANK, 'borrow', [CONTRACT_USDT, BORROW_AMOUNT_USDT, 2, 0, account.address], proxy=CONTRACT_BANK_PROXY)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_BANK, 'borrow', [CONTRACT_USDT, BORROW_AMOUNT_USDT, 2, 0, account.address], proxy=CONTRACT_BANK_PROXY)
 
   print('Depositing USDT...')
-  send_tx(account, privkey, CONTRACT_BANK, 'deposit', [CONTRACT_USDT, BORROW_AMOUNT_USDT, account.address, 0], proxy=CONTRACT_BANK_PROXY)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_BANK, 'deposit', [CONTRACT_USDT, BORROW_AMOUNT_USDT, account.address, 0], proxy=CONTRACT_BANK_PROXY)
 
   print('Approving ATOM (mint)...')
-  send_tx(account, privkey, CONTRACT_ATOM, 'approve', [CONTRACT_BANK, MAX_VALUE], proxy=CONTRACT_DAI)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_ATOM, 'approve', [CONTRACT_BANK, MAX_VALUE], proxy=CONTRACT_DAI)
 
   print('Approving ATOM (bridge)...')
-  send_tx(account, privkey, CONTRACT_ATOM, 'approve', [CONTRACT_BRIDGE, MAX_VALUE], proxy=CONTRACT_DAI)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_ATOM, 'approve', [CONTRACT_BRIDGE, MAX_VALUE], proxy=CONTRACT_DAI)
 
   print('Borrowing ATOM...')
-  send_tx(account, privkey, CONTRACT_BANK, 'borrow', [CONTRACT_ATOM, BORROW_AMOUNT_ATOM, 2, 0, account.address], proxy=CONTRACT_BANK_PROXY)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_BANK, 'borrow', [CONTRACT_ATOM, BORROW_AMOUNT_ATOM, 2, 0, account.address], proxy=CONTRACT_BANK_PROXY)
 
   print(f'Bridging ATOM to {umee_address}...')
-  send_tx(account, privkey, CONTRACT_BRIDGE, 'sendToCosmos', [CONTRACT_ATOM, umee_address, BORROW_AMOUNT_ATOM], abi=ABI_BRIDGE)
+  send_tx_with_retries(send_tx, account, privkey, CONTRACT_BRIDGE, 'sendToCosmos', [CONTRACT_ATOM, umee_address, BORROW_AMOUNT_ATOM], abi=ABI_BRIDGE)
 
   print('Done!')
