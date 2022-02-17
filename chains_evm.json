@@ -1,0 +1,34 @@
+[
+  {
+    "chain": "Ethereum",
+    "maxFee": 0,
+    "maxFeePriority": 0,
+    "delayAfterTx": 10,
+    "scanner": "https://api.etherscan.io",
+    "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ"
+  },
+  {
+    "chain": "Goerli",
+    "maxFee": 6,
+    "maxFeePriority": 2,
+    "delayAfterTx": 10,
+    "scanner": "https://api-goerli.etherscan.io",
+    "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ"
+  },
+  {
+    "chain": "Avalanche",
+    "scanner": "https://api.snowtrace.io",
+    "maxFee": 25,
+    "maxFeePriority": 25,
+    "delayAfterTx": 4,
+    "scannerAPIKey": "VXPVSUIZPZJPUG72154Q8NB9SKERWN6GZM"
+  },
+  {
+    "chain": "Avalanche Fuji",
+    "maxFee": 25,
+    "maxFeePriority": 25,
+    "delayAfterTx": 4,
+    "scanner": "https://api-testnet.snowtrace.io",
+    "scannerAPIKey": "VXPVSUIZPZJPUG72154Q8NB9SKERWN6GZM"
+  }
+]

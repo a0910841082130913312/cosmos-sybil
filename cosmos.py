@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import sys
 import json
@@ -25,6 +26,7 @@ import interfaces.msg_delegate_pb2 as MsgDelegate
 import interfaces.msg_begin_redelegate_pb2 as MsgBeginRedelegate
 import interfaces.msg_withdraw_delegator_reward_pb2 as MsgWithdrawDelegatorReward
 import interfaces.msg_vote_pb2 as MsgVote
+import interfaces.msg_send_to_eth_pb2 as MsgSendToEth
 import interfaces.pubkey_pb2 as PubKey
 import interfaces.tx_pb2 as Tx
 
@@ -42,7 +44,7 @@ PBKDF2_ROUNDS = 2048
 
 # AES encryption of a string
 # Based on https://stackoverflow.com/a/44212550
-def encrypt(key, source):
+def encrypt(key: str, source: str) -> str:
   key = key.encode('utf-8')
   source = source.encode('utf-8')
   key = SHA256.new(key).digest()  # use SHA-256 over our key to get a proper-sized AES key
@@ -55,7 +57,7 @@ def encrypt(key, source):
 
 # Decryption of an AES-encrypted string
 # Based on https://stackoverflow.com/a/44212550
-def decrypt(key, source):
+def decrypt(key: str, source: str) -> str:
   key = key.encode('utf-8')
   source = base64.b64decode(source.encode("utf-8"))
   key = SHA256.new(key).digest()  # use SHA-256 over our key to get a proper-sized AES key
@@ -68,7 +70,7 @@ def decrypt(key, source):
   return data[:-padding].decode('utf-8')  # remove the padding
 
 # Prompts the user to encrypt and save their mnemonic phrase
-def encrypt_mnemonic():
+def encrypt_mnemonic() -> None:
   key = input('Password: ').strip()
   key_conf = input('Confirm password: ').strip()
   assert key == key_conf, 'passwords do not match'
@@ -76,7 +78,7 @@ def encrypt_mnemonic():
   open(MNEMONIC, 'w').write(encrypt(key, mnemonic))
 
 # Decrypts the saved mnemonic phrase given user-specified password
-def decrypt_mnemonic(key=None):
+def decrypt_mnemonic(key: str = None) -> str:
   assert os.path.exists(MNEMONIC), 'encrypted mnemonic file does not exist'
   if key is None:
     key = input('Password: ').strip()
@@ -84,7 +86,7 @@ def decrypt_mnemonic(key=None):
 
 # Converts a mnemonic seed (without passphrase) to corresponding binary seed
 # Based on https://github.com/trezor/python-mnemonic/blob/master/src/mnemonic/mnemonic.py
-def mnemonic_to_seed(mnemonic):
+def mnemonic_to_seed(mnemonic: str) -> bytes:
   mnemonic_bytes = mnemonic.encode('utf-8')
   passcode_bytes = 'mnemonic'.encode('utf-8')
   stretched = hashlib.pbkdf2_hmac('sha512', mnemonic_bytes, passcode_bytes, PBKDF2_ROUNDS)
@@ -92,7 +94,7 @@ def mnemonic_to_seed(mnemonic):
 
 # Converts a mnemonic seed to a private key, given a specific derivation path
 # Based on https://github.com/hukkin/cosmospy/blob/master/src/cosmospy/_wallet.py
-def mnemonic_to_privkey_from_derivation(mnemonic, derivation_path):
+def mnemonic_to_privkey_from_derivation(mnemonic: str, derivation_path: str) -> bytes:
   binary_seed = mnemonic_to_seed(mnemonic)
   hd_wallet = hdwallets.BIP32.from_seed(binary_seed)
   privkey = hd_wallet.get_privkey_from_path(derivation_path)
@@ -100,7 +102,7 @@ def mnemonic_to_privkey_from_derivation(mnemonic, derivation_path):
 
 # Converts a mnemonic seed to a private key, given a specific account ID (0, 1, ...) and chain identifier
 # The chain identifier is necessary to get the correct coin type in the derivation path
-def mnemonic_to_privkey(mnemonic, id, chain):
+def mnemonic_to_privkey(mnemonic: str, id: int, chain: str) -> bytes:
   derivation_path = f'm/44\'/{chain_info(chain)["derivationCoinType"]}\'/0\'/0/{id}'
   return mnemonic_to_privkey_from_derivation(mnemonic, derivation_path)
 
@@ -113,7 +115,7 @@ def privkey_to_pubkey(privkey: bytes) -> bytes:
 
 # Converts a public key to a bech32 address given a chain
 # Can also manually specify a prefix
-def pubkey_to_address(pubkey, chain=None, prefix=None):
+def pubkey_to_address(pubkey: bytes, chain: str = None, prefix: str = None) -> str:
   if chain is not None:
     prefix = chain_info(chain)['prefix']
   assert prefix is not None, 'failed to specify bech32 prefix'
@@ -123,7 +125,7 @@ def pubkey_to_address(pubkey, chain=None, prefix=None):
   return bech32.bech32_encode(prefix, five_bit_r)
 
 # Converts a public/private keypair and a chain prefix to a bech32 encoded address
-def keypair_to_address(pubkey, privkey, chain):
+def keypair_to_address(pubkey: bytes, privkey: bytes, chain: str) -> dict:
   bech32_address = pubkey_to_address(pubkey, chain=chain)
   return {
     'chain': chain,
@@ -148,8 +150,8 @@ def mnemonic_to_accounts(mnemonic, num_accounts, chains):
 
 # Returns list of chains in config file
 @cache
-def chain_list():
-  return [chain['chain'] for chain in json.loads(open(CHAIN_LIST).read()) if not chain['hidden']]
+def chain_list(show_hidden=False):
+  return [chain['chain'] for chain in json.loads(open(CHAIN_LIST).read()) if not (chain['hidden'] and not show_hidden)]
 
 # Returns specific config info for a given chain
 @cache
@@ -437,6 +439,26 @@ def tx_add_redelegation(tx, validator_src, validator_dst, amount):
   msg.amount.CopyFrom(_amount)
   tx['tx_body'].messages.append(pack_msg(msg, '/cosmos.staking.v1beta1.MsgBeginRedelegate'))
 
+# Adds a Gravity Bridge to Ethereum operation to a transaction
+def tx_add_gravity_bridge_to_eth(tx, destination, amount):
+  # Increment total gas and fee
+  tx['gas'] += chain_info(tx['address']['chain'])['gasBridgeEth']
+  tx['fee'] += chain_info(tx['address']['chain'])['feeBridgeEth']
+
+  # Create and append message object
+  msg = MsgSendToEth.MsgSendToEth()
+  msg.sender = tx['address']['address']
+  msg.eth_dest = destination
+  _amount = Coin.Coin()
+  _amount.denom = chain_info(tx['address']['chain'])['token']
+  _amount.amount = str(amount)
+  msg.amount.CopyFrom(_amount)
+  bridge_fee = Coin.Coin()
+  bridge_fee.denom = chain_info(tx['address']['chain'])['token']
+  bridge_fee.amount = str(chain_info(tx['address']['chain'])['feeGravityBridge'])
+  msg.bridge_fee.CopyFrom(bridge_fee)
+  tx['tx_body'].messages.append(pack_msg(msg, '/gravity.v1.MsgSendToEth'))
+
 # Internal method for protobuf object structure
 def get_auth_info(tx):
   auth_info = Tx.AuthInfo()
@@ -486,100 +508,14 @@ def generate_pushable_tx(tx):
   tx_raw = base64.b64encode(bytes(tx['tx_raw'].SerializeToString())).decode('utf-8')
   return json.dumps({'tx_bytes': tx_raw, 'mode': SYNC_MODE})
 
-# Initializes and returns a dictionary representing an empty transaction
-# NOTE: Legacy code for OLD ("/txs") API endpoint where tx is formatted as JSON object
-def legacy_initialize_transaction(address, chain):
-  try:
-    add_account_number_and_sequence(address)
-  except:
-    raise RuntimeError('likely trying to send transaction from uninitialized account with 0 tokens for gas')
-  return {
-    'address': address,
-    'chain_id': chain_info(address['chain'])['chainId'],
-    'account_number': str(address['account_number']),
-    'sequence': str(address['sequence']),
-    'fee': {
-      'gas': 0,
-      'amount': [
-        {
-          'denom': chain_info(address['chain'])['token'],
-          'amount': 0
-        }
-      ]
-    },
-    'msgs': [],
-    'memo': ''
-  }
-
-# Given a transaction generated by initialize_transaction, adds a transfer operation for the chain's native token
-def legacy_tx_add_transfer(tx, recipient, amount):
-  amount = amount * (10 ** chain_info(tx['address']['chain'])['decimals'])
-  amount = str(int(amount))
-  transfer = {
-    'type': 'cosmos-sdk/MsgSend',
-    'value': {
-      'from_address': tx['address']['address'],
-      'to_address': recipient,
-      'amount': [
-        {
-          'denom': chain_info(tx['address']['chain'])['token'],
-          'amount': amount
-        }
-      ]
-    }
-  }
-  tx['msgs'].append(transfer)
-  tx['fee']['gas'] += chain_info(tx['address']['chain'])['gasTransfer']
-  tx['fee']['amount'][0]['amount'] += chain_info(tx['address']['chain'])['feeTransfer']
-
-# Finalizes a transaction and returns a 'pushable' string ready for API submission
-# Based on https://github.com/hukkin/cosmospy/blob/master/src/cosmospy/_transaction.py
-# NOTE: Legacy code for OLD ("/txs") API endpoint where tx is formatted as JSON object
-def legacy_generate_pushable_tx(tx):
-  # Remove address object from transaction dict
-  address = tx.pop('address')
-
-  # Set gas and fees to strings
-  tx['fee']['gas'] = str(tx['fee']['gas'])
-  tx['fee']['amount'][0]['amount'] = str(tx['fee']['amount'][0]['amount'])
-
-  # Generate signature with private key
-  signature = sign_tx(tx, address['privkey'])
-
-  # Generate and return 'pushable' transaction string
-  base64_pubkey = base64.b64encode(address['pubkey']).decode('utf-8')
-  pushable_tx = {
-    'tx': {
-      'msg': tx['msgs'],
-      'fee': tx['fee'],
-      'memo': tx['memo'],
-      'signatures': [
-        {
-          'signature': signature,
-          'pub_key': {'type': 'tendermint/PubKeySecp256k1', 'value': base64_pubkey},
-          'account_number': str(address['account_number']),
-          'sequence': tx['sequence']
-        }
-      ]
-    },
-  }
-  pushable_tx = {'tx_bytes': pushable_tx, 'mode': 'BROADCAST_MODE_BLOCK'}
-  pushable_tx = json.dumps(pushable_tx, separators=(',', ':'))
-  return pushable_tx
-
 # Sends a complete transaction to the corresponding chain
-# Supports both modern and legacy API endpoints
-def send_transaction(tx, legacy=False):
+def send_transaction(tx):
   print('Preparing and sending transaction...')
   chain = tx['address']['chain']
 
   # Form correct API endpoint and pushable tranaction data
-  if not legacy:
-    api_call = f'{chain_info(chain)["api"]}/cosmos/tx/v1beta1/txs'
-    pushable_tx = generate_pushable_tx(tx)
-  else:
-    api_call = f'{chain_info(chain)["api"]}/txs'
-    pushable_tx = legacy_generate_pushable_tx(tx)
+  api_call = f'{chain_info(chain)["api"]}/cosmos/tx/v1beta1/txs'
+  pushable_tx = generate_pushable_tx(tx)
 
   # Increment nonce
   tx['address']['sequence'] += 1
@@ -593,8 +529,10 @@ def send_transaction(tx, legacy=False):
 
 # Returns a list of all accounts derived from an encrypted mnemonic phrase for the specified chains
 # Accepts user input for the number of wallets derived from the mnemonic
-def get_accounts(chains):
-  accounts = mnemonic_to_accounts(decrypt_mnemonic(), int(input('Number of accounts: ')), chains)
+def get_accounts(chains, num_accounts=None):
+  if num_accounts is None:
+    num_accounts = int(input('Number of accounts: '))
+  accounts = mnemonic_to_accounts(decrypt_mnemonic(), num_accounts, chains)
   return accounts
 
 # Prints out item selection menu
@@ -663,7 +601,7 @@ def confirm():
 
 # Selects a single chain from a list
 def select_single_chain():
-  chains = chain_list()
+  chains = chain_list(show_hidden=True)
   print('> Select a chain')
   chain = select_chain(chains)
   print(f'> Chain selected: {chain}')
@@ -679,14 +617,14 @@ def select_multiple_chains():
   return chains
 
 # Load accounts corresponding to a list of chains
-def load_accounts(chains):
+def load_accounts(chains, number_of_accounts=None):
   if not isinstance(chains, list):
     chains = [chains]
   print('> Loading accounts...')
-  return get_accounts(chains)
+  return get_accounts(chains, number_of_accounts=number_of_accounts)
 
 # Prints out list of addresses
-def show_addresses():
+def show_addresses() -> None:
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
   for account in accounts:
@@ -694,7 +632,7 @@ def show_addresses():
       print(f'{account["id"]} {address["chain"]} {address["address"]}')
 
 # Shows native token balances on chains of interest
-def show_balances():
+def show_balances() -> None:
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
   chain_balances = {chain: {'wallet': 0, 'delegated': 0, 'rewards': 0} for chain in chains}
@@ -717,7 +655,7 @@ def show_balances():
     print(info)
 
 # Interactive prompts for one -> many native token transfers
-def multisend_one_many():
+def multisend_one_many() -> None:
   chain = select_single_chain()
   accounts = load_accounts(chain)
   print('> Select a source account for the transfer')
@@ -757,7 +695,7 @@ def multisend_one_many():
   send_transaction(tx)
 
 # Interactive prompts for many -> one native token transfers
-def multisend_many_one():
+def multisend_many_one() -> None:
   chain = select_single_chain()
   accounts = load_accounts(chain)
   print('> Select one or multiple source accounts')
@@ -798,7 +736,7 @@ def multisend_many_one():
       send_transaction(tx)
 
 # Check all accounts on all chains and determine if tokens need claiming and restaking
-def check_delegations():
+def check_delegations() -> None:
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
   print('> Preserve wallet balances in first account?')
@@ -864,7 +802,7 @@ def check_delegations():
           print('Failed to select target validator for delegation!')
 
 # Vote on all eligible governance proposals for all given accounts
-def cast_governance_votes():
+def cast_governance_votes() -> None:
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
 
@@ -916,7 +854,7 @@ def cast_governance_votes():
           send_transaction(tx)
 
 # Relegates stake from validator with largest delegation to user-specified validator(s)
-def redelegate_stake():
+def redelegate_stake() -> None:
   chain = select_single_chain()
   accounts = load_accounts(chain)
   print('> Select one or multiple accounts to redelegate')
@@ -960,7 +898,7 @@ def redelegate_stake():
     send_transaction(tx)
 
 # Main interactive menu
-def main_menu():
+def main_menu() -> None:
   options = ['Encrypt mnemonic']
   if os.path.exists(MNEMONIC):
     options.append('Decrypt mnemonic')

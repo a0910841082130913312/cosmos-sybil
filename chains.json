@@ -13,7 +13,11 @@
     "symbol": "UMEE",
     "decimals": 6,
     "gasTransfer": 80000,
+    "gasBridgeEth": 200000,
     "feeTransfer": 800,
+    "feeBridgeEth": 5000,
+    "feeGravityBridge": 100,
+    "minBalance": 0,
     "api": "https://api.biplosion.umeeverse-party-1.network.umee.cc",
     "hidden": true
   },
@@ -38,7 +42,8 @@
     "api": "https://cosmoshub-4--lcd--full.datahub.figment.io/apikey/b2f7367865a97058ffba194d11539533",
     "preferredValidator1": "cosmosvaloper130mdu9a0etmeuw52qfxk73pn0ga6gawkxsrlwf",
     "preferredValidator2": "cosmosvaloper16k579jk6yt2cwmqx9dz5xvq9fug2tekvlu9qdv",
-    "preferredValidator3": "cosmosvaloper196ax4vc0lwpxndu9dyhvca7jhxp70rmcvrj90c"
+    "preferredValidator3": "cosmosvaloper196ax4vc0lwpxndu9dyhvca7jhxp70rmcvrj90c",
+    "hidden": false
   },
   {
     "chain": "Osmosis",
@@ -61,7 +66,8 @@
     "api": "https://osmosis-1--lcd--full.datahub.figment.io/apikey/a1fb0fba7a8f2f219552c9bb8f20978f",
     "preferredValidator1": "osmovaloper15ft5d3dp9e9u4c3jxpxaqfmucnnrmgqtt454my",
     "preferredValidator2": "osmovaloper15ft5d3dp9e9u4c3jxpxaqfmucnnrmgqtt454my",
-    "preferredValidator3": "osmovaloper1r2u5q6t6w0wssrk6l66n3t2q3dw2uqny4gj2e3"
+    "preferredValidator3": "osmovaloper1r2u5q6t6w0wssrk6l66n3t2q3dw2uqny4gj2e3",
+    "hidden": false
   },
   {
     "chain": "Juno",
@@ -84,7 +90,8 @@
     "api": "https://lcd-juno.itastakers.com",
     "preferredValidator1": "junovaloper130mdu9a0etmeuw52qfxk73pn0ga6gawk2tz77l",
     "preferredValidator2": "junovaloper1x20lytyf6zkcrv5edpkfkn8sz578qg5sujlhnj",
-    "preferredValidator3": "junovaloper193xl2tqh2tjkld2zv49ku5s44ee4qmgr65jcep"
+    "preferredValidator3": "junovaloper193xl2tqh2tjkld2zv49ku5s44ee4qmgr65jcep",
+    "hidden": false
   },
   {
     "chain": "Secret Network",
@@ -107,6 +114,7 @@
     "api": "https://secret-4--lcd--archive.datahub.figment.io/apikey/5178a051d7ba67065aec8d77ea2ec960",
     "preferredValidator1": "secretvaloper16k26akna7h295rfjx3278s7xusnt736vy437y8",
     "preferredValidator2": "secretvaloper1mp97ajv30nrd3zmzmuyu926y4dkkh0xndrss2l",
-    "preferredValidator3": "secretvaloper14kzeqvhgrw282glj7qdqujvlx586wxtul4mwqj"
+    "preferredValidator3": "secretvaloper14kzeqvhgrw282glj7qdqujvlx586wxtul4mwqj",
+    "hidden": false
   }
 ]

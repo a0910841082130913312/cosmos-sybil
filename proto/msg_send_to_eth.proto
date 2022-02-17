@@ -1,0 +1,30 @@
+syntax = "proto3";
+package gravity.v1;
+
+import "gogo.proto";
+import "coin.proto";
+
+option go_package = "github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types";
+
+// MsgSendToEth
+// This is the message that a user calls when they want to bridge an asset
+// it will later be removed when it is included in a batch and successfully
+// submitted tokens are removed from the users balance immediately
+// -------------
+// AMOUNT:
+// the coin to send across the bridge, note the restriction that this is a
+// single coin not a set of coins that is normal in other Cosmos messages
+// FEE:
+// the fee paid for the bridge, distinct from the fee paid to the chain to
+// actually send this message in the first place. So a successful send has
+// two layers of fees for the user
+message MsgSendToEth {
+  string                   sender   = 1;
+  string                   eth_dest = 2;
+  cosmos.base.v1beta1.Coin amount   = 3 [
+    (gogoproto.nullable) = false
+  ];
+  cosmos.base.v1beta1.Coin bridge_fee = 4 [
+    (gogoproto.nullable) = false
+  ];
+}
