@@ -39,7 +39,7 @@ if __name__ == '__main__':
       params = [form_evm_contract_call, 'Avalanche Fuji', w3, account]
 
       print(f'Funding with {ETH_FUNDING_AMOUNT} AVAX...')
-      send_evm_transaction_robust(form_evm_transfer, *params[1:], ETH_FUNDING_AMOUNT, account.address)
+      send_evm_transaction_robust(form_evm_transfer, *params[1:3], accounts[0], ETH_FUNDING_AMOUNT, account.address)
       print('Sleeping 10 extra seconds...')
       time.sleep(10)
 

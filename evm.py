@@ -101,7 +101,7 @@ def send_evm_transaction_robust(func: function, *args, count: int = 0, **kwargs)
       print(e)
       time.sleep(DELAY_AFTER_EXCEPTION)
       print('Retrying transaction...')
-      return send_tx_with_retries(func, *args, count=count+1, **kwargs)
+      return send_evm_transaction_robust(func, *args, count=count+1, **kwargs)
     else:
       raise RuntimeError('too many retries')
 

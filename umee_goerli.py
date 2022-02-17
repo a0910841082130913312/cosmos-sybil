@@ -45,7 +45,7 @@ if __name__ == '__main__':
     params = [form_evm_contract_call, 'Goerli', w3, account]
 
     print(f'Funding with {ETH_FUNDING_AMOUNT} ETH...')
-    send_evm_transaction_robust(form_evm_transfer, *params[1:], account0, 0.02, account.address)
+    send_evm_transaction_robust(form_evm_transfer, *params[1:3], account0, 0.02, account.address)
 
     print('Approving DAI, USDC, USDT, and ATOM...')
     send_evm_transaction_robust(*params, CONTRACT_DAI, 'approve', [CONTRACT_BANK, MAX_VALUE])

@@ -1,27 +1,5 @@
 [
   {
-    "chain": "Ethereum",
-    "derivationCoinType": 60,
-    "hidden": true
-  },
-  {
-    "chain": "Umee Testnet",
-    "chainId": "umeeverse-party-1",
-    "derivationCoinType": 118,
-    "prefix": "umee",
-    "token": "uumee",
-    "symbol": "UMEE",
-    "decimals": 6,
-    "gasTransfer": 80000,
-    "gasBridgeEth": 200000,
-    "feeTransfer": 800,
-    "feeBridgeEth": 5000,
-    "feeGravityBridge": 100,
-    "minBalance": 0,
-    "api": "https://api.biplosion.umeeverse-party-1.network.umee.cc",
-    "hidden": true
-  },
-  {
     "chain": "Cosmos",
     "chainId": "cosmoshub-4",
     "prefix": "cosmos",
@@ -116,5 +94,22 @@
     "preferredValidator2": "secretvaloper1mp97ajv30nrd3zmzmuyu926y4dkkh0xndrss2l",
     "preferredValidator3": "secretvaloper14kzeqvhgrw282glj7qdqujvlx586wxtul4mwqj",
     "hidden": false
+  },
+  {
+    "chain": "Umee Testnet",
+    "chainId": "umeeverse-party-1",
+    "derivationCoinType": 118,
+    "prefix": "umee",
+    "token": "uumee",
+    "symbol": "UMEE",
+    "decimals": 6,
+    "gasTransfer": 80000,
+    "gasBridgeEth": 200000,
+    "feeTransfer": 800,
+    "feeBridgeEth": 5000,
+    "feeGravityBridge": 100,
+    "minBalance": 0,
+    "api": "https://api.biplosion.umeeverse-party-1.network.umee.cc",
+    "hidden": true
   }
 ]
