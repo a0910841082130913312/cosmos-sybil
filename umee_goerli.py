@@ -1,19 +1,13 @@
-import time
-from web3 import Web3
-from web3.middleware import geth_poa_middleware
 from cosmos import *
 from evm import *
 
-INFURA_PROJECT_ID = '1b56fe63a99144c783f9fd2cf8b30e0e'
-MAX_VALUE = 115792089237316195423570985008687907853269984665640564039457584007913129639935
-
-CONTRACT_DAI = Web3.toChecksumAddress('0xd787ec2b6c962f611300175603741db8438674a0')
-CONTRACT_USDC = Web3.toChecksumAddress('0x0aa78575e17ac357294bb7b5a9ea512ba07669e2')
-CONTRACT_USDT = Web3.toChecksumAddress('0x77baa6a171e5084a9e7683b1f6658bf330bf0011')
-CONTRACT_ATOM = Web3.toChecksumAddress('0x260edffa7648ddc398b91884d78485612fc6d246')
-CONTRACT_BANK = Web3.toChecksumAddress('0x75d5e88adf8f3597c7c3e4a930544fb48089c779')
-CONTRACT_BANK_PROXY = Web3.toChecksumAddress('0xea08c7bc64cf48bd167ddd978157b78e62d51ac2')
-CONTRACT_BRIDGE = Web3.toChecksumAddress('0xb76197af55d294994fcec380964131b824132ec6')
+CONTRACT_DAI = format_addr('0xd787ec2b6c962f611300175603741db8438674a0')
+CONTRACT_USDC = format_addr('0x0aa78575e17ac357294bb7b5a9ea512ba07669e2')
+CONTRACT_USDT = format_addr('0x77baa6a171e5084a9e7683b1f6658bf330bf0011')
+CONTRACT_ATOM = format_addr('0x260edffa7648ddc398b91884d78485612fc6d246')
+CONTRACT_BANK = format_addr('0x75d5e88adf8f3597c7c3e4a930544fb48089c779')
+CONTRACT_BANK_PROXY = format_addr('0xea08c7bc64cf48bd167ddd978157b78e62d51ac2')
+CONTRACT_BRIDGE = format_addr('0xb76197af55d294994fcec380964131b824132ec6')
 
 MINT_AMOUNT_DAI = 2000000000000000000
 MINT_AMOUNT_USDC = 2000000
@@ -30,12 +24,9 @@ def get_account_info(id):
   return account, umee_address
 
 if __name__ == '__main__':
-  w3 = Web3(Web3.HTTPProvider(f'httpsh://goerli.infura.io/v3/{INFURA_PROJECT_ID}'))
-  w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
+  w3 = get_web3_connection('Goerli')
   key = input('Password: ').strip()
-  min_id = int(input('Min ID: '))
-  max_id = int(input('Max ID: '))
+  min_id, max_id = get_range()
   account0, _ = get_account_info(0)
   for id in range(min_id, max_id+1):
     print(f'Beginning transactions for account ID {id}.')

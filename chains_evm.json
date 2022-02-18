@@ -1,34 +1,38 @@
 [
   {
     "chain": "Ethereum",
-    "maxFee": 0,
-    "maxFeePriority": 0,
+    "maxBaseFee": 0,
     "delayAfterTx": 10,
     "scanner": "https://api.etherscan.io",
-    "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ"
+    "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ",
+    "rpc": "",
+    "injectMiddleware": false
   },
   {
     "chain": "Goerli",
-    "maxFee": 6,
-    "maxFeePriority": 2,
+    "maxBaseFee": 0,
     "delayAfterTx": 10,
     "scanner": "https://api-goerli.etherscan.io",
-    "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ"
+    "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ",
+    "rpc": "https://goerli.infura.io/v3/1b56fe63a99144c783f9fd2cf8b30e0e",
+    "injectMiddleware": true
   },
   {
     "chain": "Avalanche",
     "scanner": "https://api.snowtrace.io",
-    "maxFee": 25,
-    "maxFeePriority": 25,
+    "maxBaseFee": 0,
     "delayAfterTx": 4,
-    "scannerAPIKey": "VXPVSUIZPZJPUG72154Q8NB9SKERWN6GZM"
+    "scannerAPIKey": "VXPVSUIZPZJPUG72154Q8NB9SKERWN6GZM",
+    "rpc": "",
+    "injectMiddleware": true
   },
   {
     "chain": "Avalanche Fuji",
-    "maxFee": 25,
-    "maxFeePriority": 25,
+    "maxBaseFee": 30000000000,
     "delayAfterTx": 4,
     "scanner": "https://api-testnet.snowtrace.io",
-    "scannerAPIKey": "VXPVSUIZPZJPUG72154Q8NB9SKERWN6GZM"
+    "scannerAPIKey": "VXPVSUIZPZJPUG72154Q8NB9SKERWN6GZM",
+    "rpc": "https://api.avax-test.network/ext/bc/C/rpc",
+    "injectMiddleware": true
   }
 ]

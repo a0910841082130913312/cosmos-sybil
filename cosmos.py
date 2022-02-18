@@ -36,7 +36,7 @@ CHAIN_LIST = 'chains.json'
 SYNC_MODE = 'BROADCAST_MODE_BLOCK'
 PRECISION = 3
 MIN_REWARDS_THRESHOLD = 0.1
-PROB_VOTE_YES = 0.8
+PROB_VOTE_YES = 1
 
 # Constant parameter related to mnemonic -> wallet derivation
 # Do not change
@@ -617,11 +617,11 @@ def select_multiple_chains():
   return chains
 
 # Load accounts corresponding to a list of chains
-def load_accounts(chains, number_of_accounts=None):
+def load_accounts(chains, num_accounts=None):
   if not isinstance(chains, list):
     chains = [chains]
   print('> Loading accounts...')
-  return get_accounts(chains, number_of_accounts=number_of_accounts)
+  return get_accounts(chains, num_accounts=num_accounts)
 
 # Prints out list of addresses
 def show_addresses() -> None:
