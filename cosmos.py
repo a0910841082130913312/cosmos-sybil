@@ -140,7 +140,6 @@ def mnemonic_to_accounts(mnemonic, num_accounts, chains):
   for id in range(num_accounts):
     account = {'id': id, 'addresses': []}
     for chain in chains:
-      #print(f'Retrieving data for account {id} on {chain}...')
       privkey = mnemonic_to_privkey(mnemonic, id, chain)
       pubkey = privkey_to_pubkey(privkey)
       address = keypair_to_address(pubkey, privkey, chain)

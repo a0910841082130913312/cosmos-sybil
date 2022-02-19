@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import time
 import requests
+import traceback
 from cosmos import *
 from functools import cache
 from web3 import Web3
@@ -14,10 +15,12 @@ if TYPE_CHECKING:
   from eth_account.signers.local import LocalAccount
 
 CHAIN_LIST_EVM = 'chains_evm.json'
-PRIORITY_GAS_MULTIPLIER = 0.1
+BASE_FEE_MULTIPLIER = 1
+PRIORITY_GAS_MULTIPLIER = 0.05
 DELAY_AFTER_TX = 5
 DELAY_AFTER_EXCEPTION = 10
-DELAY_AFTER_HIGH_GAS = 30
+DELAY_AFTER_HIGH_GAS = 5
+DELAY_LATEST_BLOCK_RETRIEVAL = 0.5
 MAX_RETRIES = 5
 GAS_TRANSFER = 21000
 MAX_VALUE = 115792089237316195423570985008687907853269984665640564039457584007913129639935
@@ -41,10 +44,13 @@ def get_evm_latest_block_number(chain: str) -> str:
 # Get the base gas fee corresponding to the latest block
 def get_evm_recent_gas(chain: str):
   block_num = get_evm_latest_block_number(chain)
+  time.sleep(DELAY_LATEST_BLOCK_RETRIEVAL)
   headers = {'Content-Type': 'application/json'}
   data = {'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getBlockByNumber', 'params': [block_num, True]}
   req = requests.post(evm_chain_info(chain)['rpc'], headers=headers, json=data)
-  return int(req.json()['result']['baseFeePerGas'], 16)
+  gas = int(req.json()['result']['baseFeePerGas'], 16)
+  print(f'Read out latest base gas fee: {gas}')
+  return gas
 
 # Waits until base fee of latest block is lower than configured maximum
 # Returns a recommended base fee for the next transaction
@@ -58,11 +64,11 @@ def wait_until_cheap_gas(chain):
     gas = get_evm_recent_gas(chain)
     ratio = str(gas / max_gas)[:6] + 'x'
   print(f'Gas check passed: {ratio} compared to max ({gas} and {max_gas} respectively)!')
-  return int(gas * 1.125)
+  return int(gas * BASE_FEE_MULTIPLIER)
 
 # Returns an address's token balance
 def get_evm_token_balance(chain: str, address: str, token_contract: str) -> int:
-  req = requests.get(f'{evm_chain_info(chain)["scanner"]}/api?module=proxy&action=eth_blockNumber&apikey={evm_chain_info(chain)["scannerAPIKey"]}')
+  req = requests.get(f'{evm_chain_info(chain)["scanner"]}/api?module=account&action=tokenbalance&contractaddress={token_contract}&address={address}&apikey={evm_chain_info(chain)["scannerAPIKey"]}&tag=latest')
   return int(req.json()['result'])
 
 # Generic internal function for retrieving verified contract ABIs from Etherscan and Etherscan forks
@@ -137,7 +143,8 @@ def send_evm_transaction_robust(func: function, chain: str, w3: Web3, account: L
   except Exception as e:
     if count <= MAX_RETRIES:
       print(f'Encountered an exception, sleeping for {DELAY_AFTER_EXCEPTION} seconds...')
-      print(e)
+      print('Exception:', e)
+      #print(traceback.format_exc())
       if hasattr(account, 'nonce'):
         del account.nonce
       time.sleep(DELAY_AFTER_EXCEPTION)
