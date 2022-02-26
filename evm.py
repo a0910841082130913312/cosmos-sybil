@@ -68,12 +68,12 @@ def wait_until_cheap_gas(chain):
 
 # Returns an address's token balance
 def get_evm_token_balance(chain: str, address: str, token_contract: str) -> int:
-  req = requests.get(f'{evm_chain_info(chain)["scanner"]}/api?module=account&action=tokenbalance&contractaddress={token_contract}&address={address}&apikey={evm_chain_info(chain)["scannerAPIKey"]}&tag=latest')
+  req = requests.get(f'{evm_chain_info(chain)["scanner"]}/api?module=account&action=tokenbalance&contractaddress={token_contract}&address={address}&apikey={evm_chain_info(chain)["scannerAPIKey"]}&tag=latest', headers={'User-Agent': GENERIC_USER_AGENT})
   return int(req.json()['result'])
 
 # Generic internal function for retrieving verified contract ABIs from Etherscan and Etherscan forks
 def get_abi(chain: str, contract_address: str) -> str:
-  req = requests.get(f'{evm_chain_info(chain)["scanner"]}/api?module=contract&action=getabi&address={contract_address}&apikey={evm_chain_info(chain)["scannerAPIKey"]}')
+  req = requests.get(f'{evm_chain_info(chain)["scanner"]}/api?module=contract&action=getabi&address={contract_address}&apikey={evm_chain_info(chain)["scannerAPIKey"]}', headers={'User-Agent': GENERIC_USER_AGENT})
   data = req.json()
   abi = json.dumps(data['result']).replace('\\', '')[1:-1]
   return abi
@@ -201,5 +201,9 @@ def format_addr(address: str) -> str:
   return Web3.toChecksumAddress(address)
 
 if __name__ == '__main__':
-  get_evm_recent_gas('Avalanche Fuji')
-  get_evm_recent_gas('Goerli')
+  w3 = get_web3_connection('Avalanche Fuji')
+  max_id = int(input('Max: '))
+  accounts = get_evm_accounts(w3, max_id+1)
+  while True:
+    id = int(input('ID: '))
+    print(str(accounts[id].address))
