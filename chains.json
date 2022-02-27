@@ -57,7 +57,7 @@
     "decimals": 6,
     "gasClaim": 140000,
     "gasStake": 250000,
-    "gasUnstake": 250000
+    "gasUnstake": 250000,
     "gasTransfer": 80000,
     "gasVote": 250000,
     "feeClaim": 350,
