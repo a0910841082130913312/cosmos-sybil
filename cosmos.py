@@ -786,9 +786,10 @@ def multisend_many_one() -> None:
 def check_delegations() -> None:
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
+  accounts_stake = select_items(accounts)
   print('> Preserve wallet balances in first account?')
   skip_first = confirm()
-  for account in accounts:
+  for account in accounts_stake:
     for chain in chains:
       address = get_specific_address(account, chain)
       print(f'> Processing wallet {account["id"]} on {chain} ({address["address"]})')
@@ -857,7 +858,8 @@ def undelegate_all() -> None:
   """
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
-  for account in accounts:
+  accounts_unstake = select_items(accounts)
+  for account in accounts_unstake:
     for chain in chains:
       address = get_specific_address(account, chain)
       print(f'> Processing wallet {account["id"]} on {chain} ({address["address"]})')
