@@ -399,7 +399,6 @@ def tx_add_undelegation(tx, validator, amount):
   :param amount: Coin amount
   :return:
   """
-  # Change amount to delegate into integer with implied decimals, rounded down
   amount = str(int(amount))
 
   # Increment total gas and fee
