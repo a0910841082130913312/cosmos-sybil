@@ -62,7 +62,7 @@
     "gasVote": 250000,
     "feeClaim": 350,
     "feeStake": 625,
-    "feeUnstake": 625
+    "feeUnstake": 625,
     "feeTransfer": 200,
     "feeVote": 625,
     "minBalance": 5000,
