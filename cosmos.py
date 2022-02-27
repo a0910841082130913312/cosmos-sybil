@@ -400,7 +400,6 @@ def tx_add_undelegation(tx, validator, amount):
   :return:
   """
   # Change amount to delegate into integer with implied decimals, rounded down
-  amount = amount * (10 ** chain_info(tx['address']['chain'])['decimals'])
   amount = str(int(amount))
 
   # Increment total gas and fee
@@ -901,7 +900,7 @@ def undelegate_all() -> None:
         # undelegate all
         validator = delegation_data["delegation"]["validator_address"]
         amount_delegated = delegation_data["balance"]["amount"]
-        print(f"Undelegating {amount_delegated} {symbol} from {validator}...")
+        print(f"Undelegating {int(amount_delegated) / (10 ** chain_info(chain)['decimals'])} {symbol} from {validator}...")
         tx = initialize_transaction(address)
         tx_add_undelegation(tx, validator, amount_delegated)
         send_transaction(tx)
