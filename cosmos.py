@@ -632,6 +632,10 @@ def show_addresses() -> None:
 
 # Shows native token balances on chains of interest
 def show_balances() -> None:
+  """
+  Shows and prints native token balances on chains of interest for specified accounts
+  :return:
+  """
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
   chain_balances = {chain: {'wallet': 0, 'delegated': 0, 'rewards': 0} for chain in chains}
@@ -640,10 +644,23 @@ def show_balances() -> None:
     for address in account['addresses']:
       chain = address['chain']
       if chain in chains:
+        chain_symbol = chain_info(chain)["symbol"]
+
+        # various balances
         balances = get_all_token_balances(chain, address['address'])
-        chain_balances[chain]['wallet'] += balances['wallet']
-        chain_balances[chain]['delegated'] += balances['delegated']
-        chain_balances[chain]['rewards'] += balances['rewards']['total_rewards']
+
+        in_wallet = balances["wallet"]
+        delegated = balances["delegated"]
+        rewards = balances["rewards"]["total_rewards"]
+
+        chain_balances[chain]['wallet'] += in_wallet
+        chain_balances[chain]['delegated'] += delegated
+        chain_balances[chain]['rewards'] += rewards
+
+        print(f'Account {account["id"]} has {in_wallet} {chain_symbol} in wallet')
+        print(f'Account {account["id"]} has {delegated} {chain_symbol} delegated')
+        print(f'Account {account["id"]} has {rewards} {chain_symbol} in pending rewards')
+
   for chain in chains:
     chain_balances[chain]["total"] = chain_balances[chain]["wallet"] + chain_balances[chain]["delegated"] + chain_balances[chain]["rewards"]
     info = f'{chain} balances:'
