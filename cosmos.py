@@ -857,8 +857,6 @@ def undelegate_all() -> None:
   """
   chains = select_multiple_chains()
   accounts = load_accounts(chains)
-  print('> Preserve wallet balances in first account?')
-  skip_first = confirm()
   for account in accounts:
     for chain in chains:
       address = get_specific_address(account, chain)
@@ -869,8 +867,6 @@ def undelegate_all() -> None:
       wallet, delegated, rewards = balances['wallet'], balances['delegated'], balances['rewards']
       symbol = chain_info(chain)['symbol']
       print(f'Wallet: {wallet} {symbol}')
-      if account['id'] == 0 and skip_first:
-        wallet = 0
       print(f'Delegated balance: {delegated} {symbol}')
       print(f'Total pending rewards: {rewards["total_rewards"]} {symbol}')
       print(f'Number of validators delegated to: {len(rewards["validators"])}')
@@ -897,27 +893,16 @@ def undelegate_all() -> None:
           tx_claim_rewards(tx, validator)
           send_transaction(tx)
 
-        # Attempt to select target validator as validator with largest delegated amount currently
-        best_validator, max_amount = get_max_delegated(chain, address['address'])
-        if best_validator is not None:
-          print(f'Selected {best_validator} as delegation target (current delegation amount: {max_amount})')
-
-        # If no delegations, select a random validator from preferredValidator{1,2,3} in chains config
-        if best_validator is None:
-          preferred_validators = [chain_info(chain)['preferredValidator' + str(i)] for i in [1, 2, 3]]
-          preferred_validators = [validator for validator in preferred_validators if validator != '']
-          best_validator = random.choice(preferred_validators)
-          print(f'Selected {best_validator} as delegation target (random preferred validator)')
-
-        # Proceed with staking transaction if target validator successfully selected:
-        if best_validator is not None:
-          amount_stake = round(wallet + rewards['total_rewards'] - fee - min_balance)
-          print(f'Staking {amount_stake} {symbol} with {best_validator}...')
-          tx = initialize_transaction(address)
-          tx_add_delegation(tx, best_validator, amount_stake)
-          send_transaction(tx)
-        else:
-          print('Failed to select target validator for delegation!')
+      # Check balances again and proceed with undelegation
+      present_delegations = get_all_delegated(chain, address["address"])
+      for delegation_data in present_delegations:
+        # undelegate all
+        validator = delegation_data["delegation"]["validator_address"]
+        amount_delegated = delegation_data["balance"]["amount"]
+        print(f"Undelegating {amount_delegated} {symbol} from {validator}...")
+        tx = initialize_transaction(address)
+        tx_add_undelegation(tx, validator, amount_delegated)
+        send_transaction(tx)
 
 
 
@@ -1030,6 +1015,7 @@ def main_menu() -> None:
     options.append('Cast governance votes')
     options.append('Check delegations and cast governance votes')
     options.append('Redelegate stake')
+    options.append('Undelegate all')
     options.append('Exit')
   print('> Choose an option')
   print_item_menu(options)
@@ -1055,6 +1041,8 @@ def main_menu() -> None:
     cast_governance_votes()
   elif opt == 'Redelegate stake':
     redelegate_stake()
+  elif opt == 'Undelegate all':
+    undelegate_all()
   elif opt == 'Exit':
     sys.exit(0)
 
