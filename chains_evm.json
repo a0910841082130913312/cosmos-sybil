@@ -10,7 +10,7 @@
   },
   {
     "chain": "Goerli",
-    "maxBaseFee": 10,
+    "maxBaseFee": 10000000000,
     "delayAfterTx": 10,
     "scanner": "https://api-goerli.etherscan.io",
     "scannerAPIKey": "63EQXB7PPAHS878I39WTK56JHS6ZUAF4QQ",

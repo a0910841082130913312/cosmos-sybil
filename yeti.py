@@ -2,6 +2,8 @@ import time
 from cosmos import *
 from evm import *
 
+# 1150
+
 CONTRACT_QIUSDC = format_addr('0xac9518d66df4ba4570b3a0213e7df45802d5e7f3')
 CONTRACT_WAVAX = format_addr('0xdd30dff5f83f53789520118fc8ab15f5b2c2c850')
 CONTRACT_WETH = format_addr('0x5085f96fab5a4f4cd6acedf8054b431aacf298f9')
@@ -54,7 +56,7 @@ if __name__ == '__main__':
       send_evm_transaction_robust(*params, CONTRACT_YETI, 'approve', [CONTRACT_YETI, MAX_VALUE])
 
       print('Providing YUSD to stability pool...')
-      send_evm_transaction_robust(*params, CONTRACT_SPOOL, 'provideToSP', [int(20000 * 1e18), ZERO_ADDRESS], abi_override=ABI_SPOOL) 
+      send_evm_transaction_robust(*params, CONTRACT_SPOOL, 'provideToSP', [int(20000 * 1e18), ZERO_ADDRESS], abi_override=ABI_SPOOL)
     elif option == 2:
       print('Withdrawing stability pool rewards...')
       send_evm_transaction_robust(*params, CONTRACT_SPOOL, 'withdrawFromSP', [0], abi_override=ABI_SPOOL) 
@@ -62,4 +64,36 @@ if __name__ == '__main__':
       balance = get_evm_token_balance('Avalanche Fuji', str(account.address), str(CONTRACT_YETI))
       print(f'Staking {balance} YETI...')
       send_evm_transaction_robust(*params, CONTRACT_SYETI, 'mint', [balance])
+    elif option == 3:
+      if id <= 1150:
+        print('Providing YUSD to stability pool...')
+        send_evm_transaction_robust(*params, CONTRACT_SPOOL, 'provideToSP', [int(20000 * 1e18), ZERO_ADDRESS], abi_override=ABI_SPOOL)
+      else:
+        print(f'Funding with {ETH_FUNDING_AMOUNT} AVAX...')
+        send_evm_transaction_robust(form_evm_transfer, *params[1:3], accounts[0], ETH_FUNDING_AMOUNT, account.address)
+
+        print('Minting and approving JOE......')
+        send_evm_transaction_robust(*params, CONTRACT_JOE, 'mint')
+        send_evm_transaction_robust(*params, CONTRACT_JOE, 'approve', [CONTRACT_TROVE, MAX_VALUE])
+
+        print('Minting and approving YUSD...')
+        send_evm_transaction_robust(*params, CONTRACT_YUSD_MINTER, 'mint')
+        send_evm_transaction_robust(*params, CONTRACT_YUSD, 'approve', [CONTRACT_TROVE, MAX_VALUE])
+
+        print('Creating trove...')
+        send_evm_transaction_robust(*params, CONTRACT_TROVE, 'openTrove', [100000000000000000, 10000000000000000000000, format_addr('0x282061bb62f3a88e56b14fdca84c4477b33f2c4a'), format_addr('0x2c02078935fe5b407583209d7bc22df60fbdf958'), [CONTRACT_JOE], [26000000000000000000000]])
+        time.sleep(10)
+
+        print('Minting qiUSDC, WAVAX, WETH, YUSD, JOE, JLP, and DANGER...')
+        send_evm_transaction_robust(*params, CONTRACT_QIUSDC, 'mint')
+        send_evm_transaction_robust(*params, CONTRACT_WAVAX, 'mint')
+        send_evm_transaction_robust(*params, CONTRACT_WETH, 'mint')
+        send_evm_transaction_robust(*params, CONTRACT_JLP, 'mint')
+        send_evm_transaction_robust(*params, CONTRACT_DANGER, 'mint')
+
+        print('Approving YETI...')
+        send_evm_transaction_robust(*params, CONTRACT_YETI, 'approve', [CONTRACT_YETI, MAX_VALUE])
+
+        print('Providing YUSD to stability pool...')
+        send_evm_transaction_robust(*params, CONTRACT_SPOOL, 'provideToSP', [int(20000 * 1e18), ZERO_ADDRESS], abi_override=ABI_SPOOL)
     print('Done!')

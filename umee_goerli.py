@@ -1,3 +1,4 @@
+import time
 from cosmos import *
 from evm import *
 
@@ -28,6 +29,7 @@ if __name__ == '__main__':
   key = input('Password: ').strip()
   min_id, max_id = get_range()
   account0, _ = get_account_info(0)
+  option = int(input('Option: '))
   for id in range(min_id, max_id+1):
     print(f'Beginning transactions for account ID {id}.')
 
@@ -35,30 +37,35 @@ if __name__ == '__main__':
     print(f'Account address: {account.address}')
     params = [form_evm_contract_call, 'Goerli', w3, account]
 
-    print(f'Funding with {ETH_FUNDING_AMOUNT} ETH...')
-    send_evm_transaction_robust(form_evm_transfer, *params[1:3], account0, 0.02, account.address)
+    if option == 1:
+      print(f'Funding with {ETH_FUNDING_AMOUNT} ETH...')
+      send_evm_transaction_robust(form_evm_transfer, *params[1:3], account0, 0.02, account.address)
 
-    print('Approving DAI, USDC, USDT, and ATOM...')
-    send_evm_transaction_robust(*params, CONTRACT_DAI, 'approve', [CONTRACT_BANK, MAX_VALUE])
-    send_evm_transaction_robust(*params, CONTRACT_USDC, 'approve', [CONTRACT_BANK, MAX_VALUE])
-    send_evm_transaction_robust(*params, CONTRACT_USDT, 'approve', [CONTRACT_BANK, MAX_VALUE])
-    send_evm_transaction_robust(*params, CONTRACT_ATOM, 'approve', [CONTRACT_BANK, MAX_VALUE], proxy=CONTRACT_DAI)
-    send_evm_transaction_robust(*params, CONTRACT_ATOM, 'approve', [CONTRACT_BRIDGE, MAX_VALUE], proxy=CONTRACT_DAI)
+      print('Approving DAI, USDC, USDT, and ATOM...')
+      send_evm_transaction_robust(*params, CONTRACT_DAI, 'approve', [CONTRACT_BANK, MAX_VALUE])
+      send_evm_transaction_robust(*params, CONTRACT_USDC, 'approve', [CONTRACT_BANK, MAX_VALUE])
+      send_evm_transaction_robust(*params, CONTRACT_USDT, 'approve', [CONTRACT_BANK, MAX_VALUE])
+      send_evm_transaction_robust(*params, CONTRACT_ATOM, 'approve', [CONTRACT_BANK, MAX_VALUE], proxy_address=CONTRACT_DAI)
+      send_evm_transaction_robust(*params, CONTRACT_ATOM, 'approve', [CONTRACT_BRIDGE, MAX_VALUE], proxy_address=CONTRACT_DAI)
 
     print('Minting testnet DAI and USDC...')
     send_evm_transaction_robust(*params, CONTRACT_DAI, 'mint', [MINT_AMOUNT_DAI])
     send_evm_transaction_robust(*params, CONTRACT_USDC, 'mint', [MINT_AMOUNT_USDC])
+    time.sleep(60)
 
     print('Depositing DAI and USDC...')
-    send_evm_transaction_robust(*params, CONTRACT_BANK, 'deposit', [CONTRACT_DAI, MINT_AMOUNT_DAI, account.address, 0], proxy=CONTRACT_BANK_PROXY)
-    send_evm_transaction_robust(*params, CONTRACT_BANK, 'deposit', [CONTRACT_USDC, MINT_AMOUNT_USDC, account.address, 0], proxy=CONTRACT_BANK_PROXY)
+    send_evm_transaction_robust(*params, CONTRACT_BANK, 'deposit', [CONTRACT_DAI, MINT_AMOUNT_DAI, account.address, 0], proxy_address=CONTRACT_BANK_PROXY)
+    send_evm_transaction_robust(*params, CONTRACT_BANK, 'deposit', [CONTRACT_USDC, MINT_AMOUNT_USDC, account.address, 0], proxy_address=CONTRACT_BANK_PROXY)
+    time.sleep(60)
 
     print('Borrowing and depositing USDT, then borrowing ATOM...')
-    send_evm_transaction_robust(*params, CONTRACT_BANK, 'borrow', [CONTRACT_USDT, BORROW_AMOUNT_USDT, 2, 0, account.address], proxy=CONTRACT_BANK_PROXY)
-    send_evm_transaction_robust(*params, CONTRACT_BANK, 'deposit', [CONTRACT_USDT, BORROW_AMOUNT_USDT, account.address, 0], proxy=CONTRACT_BANK_PROXY)
-    send_evm_transaction_robust(*params, CONTRACT_BANK, 'borrow', [CONTRACT_ATOM, BORROW_AMOUNT_ATOM, 2, 0, account.address], proxy=CONTRACT_BANK_PROXY)
+    if option == 1:
+      send_evm_transaction_robust(*params, CONTRACT_BANK, 'borrow', [CONTRACT_USDT, BORROW_AMOUNT_USDT, 2, 0, account.address], proxy_address=CONTRACT_BANK_PROXY)
+      send_evm_transaction_robust(*params, CONTRACT_BANK, 'deposit', [CONTRACT_USDT, BORROW_AMOUNT_USDT, account.address, 0], proxy_address=CONTRACT_BANK_PROXY)
+    send_evm_transaction_robust(*params, CONTRACT_BANK, 'borrow', [CONTRACT_ATOM, BORROW_AMOUNT_ATOM, 2, 0, account.address], proxy_address=CONTRACT_BANK_PROXY)
+    time.sleep(60)
 
     print(f'Bridging ATOM to {umee_address}...')
-    send_evm_transaction_robust(*params, CONTRACT_BRIDGE, 'sendToCosmos', [CONTRACT_ATOM, umee_address, BORROW_AMOUNT_ATOM], abi=ABI_BRIDGE)
+    send_evm_transaction_robust(*params, CONTRACT_BRIDGE, 'sendToCosmos', [CONTRACT_ATOM, umee_address, BORROW_AMOUNT_ATOM], abi_override=ABI_BRIDGE)
 
     print('Done!')
