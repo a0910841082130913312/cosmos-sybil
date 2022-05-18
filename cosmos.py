@@ -878,20 +878,12 @@ def undelegate_all() -> None:
       staking_apr = chain_info(chain)['stakingApr']
       print(f'Estimated transaction fee for claiming and restaking: {fee} {symbol}')
 
-      # Determine whether it's desirable to claim and restake
-      should_claim, diff = optimal_restaking(wallet, min_balance, delegated, staking_apr, rewards["total_rewards"], fee)
-      if not should_claim:
-        if diff is not None:
-          print(f'It is NOT optimal to claim and restake (rewards need to be {diff} {symbol} higher).')
-        else:
-          print(f'It is NOT optimal to claim and restake (balance would decrease below minimum).')
-      else:
-        # Claim all nontrivial delegation rewards
-        for validator, reward in rewards['validators']:
-          print(f'Claiming {reward / (10 ** chain_info(chain)["decimals"])} {symbol} in rewards from validator {validator}...')
-          tx = initialize_transaction(address)
-          tx_claim_rewards(tx, validator)
-          send_transaction(tx)
+      # Claim all nontrivial delegation rewards
+      for validator, reward in rewards['validators']:
+        print(f'Claiming {reward / (10 ** chain_info(chain)["decimals"])} {symbol} in rewards from validator {validator}...')
+        tx = initialize_transaction(address)
+        tx_claim_rewards(tx, validator)
+        send_transaction(tx)
 
       # Check balances again and proceed with undelegation
       present_delegations = get_all_delegated(chain, address["address"])
