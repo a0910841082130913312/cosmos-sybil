@@ -6,7 +6,7 @@ I no longer maintain any balances on Cosmos wallets and likely will not maintain
 
 You need to have Python 3 installed, plus the following packages: `bech32`, `hdwallets`, `pycryptodome`, `protobuf`, `web3`.
 
-You can then run `python3 cosmos.py` and a number of different options will show up in a menu. On your first run, you will want to save your seed phrase in an encrypted file (stored as `mnemonic.secret`) through the interactive menu option. Afterward, you will be prompted to decrypt the file with a password every time you perform operations with your wallets.
+You can then run `python3 cosmos.py` and a number of different options will show up in a menu. On your first run, you will want to save your seed phrase in an encrypted file (stored as `mnemonic.secret`) through the interactive menu option. (I would obviously recommend using a seed phrase that isn't associated with your primary wallets, for the sake of security.) Afterward, you will be prompted to decrypt the file with a password every time you perform operations with your wallets. As many wallets can be derived from your seed phrase as you want.
 
 You can update IBC chain parameters or add/remove chains by editing `chains.json`.
 
